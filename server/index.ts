@@ -28,7 +28,7 @@ app.use('/api/trpc', createExpressMiddleware({
 // Serve built frontend in production
 const clientDist = path.join(__dirname, '..', 'client', 'dist');
 app.use(express.static(clientDist));
-app.get('*', (_req, res) => {
+app.get('{*path}', (_req, res) => {
   res.sendFile(path.join(clientDist, 'index.html'));
 });
 
