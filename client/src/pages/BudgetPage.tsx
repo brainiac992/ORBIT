@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { trpc } from '../lib/trpc.js';
-import { StatusBadge, formatAED } from '../components/StatusBadge.js';
+import { StatusBadge, formatAED, SectionHeader } from '../components/StatusBadge.js';
 import { Modal, FormField, Input, TextArea, Select, Button } from '../components/Modal.js';
-import { VentureTabs } from './PMDashboard.js';
 import { useAuth } from '../lib/auth.js';
+import { formatDate } from '../lib/format.js';
 
 export function BudgetPage() {
   const { ventureId } = useParams<{ ventureId: string }>();
@@ -31,11 +31,11 @@ export function BudgetPage() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
-      <VentureTabs ventureId={ventureId!} active="budget" />
+      {/* Navigation handled by sidebar */}
 
       {/* Summary tiles */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-        <div className="bg-white rounded-xl border border-[var(--border)] p-5">
+        <div className="bg-[var(--surface-0)] rounded-2xl border border-[var(--border)] p-5">
           <div className="text-xs text-[var(--text-secondary)] mb-1">Approved Budget</div>
           <div className="text-xl font-semibold ltr-num">{formatAED(data.approvedBudget)}</div>
           {isPMO && !data.budgetLocked && (
@@ -43,11 +43,11 @@ export function BudgetPage() {
           )}
           {data.budgetLocked && <span className="text-xs text-green-600 mt-1 inline-block">Locked</span>}
         </div>
-        <div className="bg-white rounded-xl border border-[var(--border)] p-5">
+        <div className="bg-[var(--surface-0)] rounded-2xl border border-[var(--border)] p-5">
           <div className="text-xs text-[var(--text-secondary)] mb-1">Forecast at Completion</div>
           <div className="text-xl font-semibold ltr-num">{formatAED(data.forecastAtCompletion)}</div>
         </div>
-        <div className="bg-white rounded-xl border border-[var(--border)] p-5">
+        <div className="bg-[var(--surface-0)] rounded-2xl border border-[var(--border)] p-5">
           <div className="text-xs text-[var(--text-secondary)] mb-1">Variance</div>
           <div className={`text-xl font-semibold ltr-num ${data.budgetVariance < 0 ? 'text-red-600' : 'text-green-600'}`}>
             {data.budgetVariance >= 0 ? '+' : ''}{formatAED(data.budgetVariance)}
@@ -57,7 +57,7 @@ export function BudgetPage() {
       </div>
 
       {/* Category breakdown */}
-      <div className="bg-white rounded-xl border border-[var(--border)] p-5 mb-6">
+      <div className="bg-[var(--surface-0)] rounded-2xl border border-[var(--border)] p-5 mb-6">
         <h3 className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide mb-4">Spend by Category</h3>
         <div className="space-y-3">
           {categoryBars.map(cat => (
@@ -81,7 +81,7 @@ export function BudgetPage() {
       )}
 
       {/* Spend log */}
-      <div className="bg-white rounded-xl border border-[var(--border)] overflow-hidden mb-6">
+      <div className="bg-[var(--surface-0)] rounded-2xl border border-[var(--border)] overflow-hidden mb-6">
         <div className="px-5 py-3 border-b border-[var(--border)]">
           <h3 className="text-sm font-medium">Spend Log</h3>
           <p className="text-xs text-[var(--text-secondary)]">Entries cannot be edited. Log a correction to adjust.</p>
@@ -91,7 +91,7 @@ export function BudgetPage() {
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-[var(--surface-muted)] text-[var(--text-secondary)] text-xs uppercase tracking-wide">
+              <tr className="bg-[var(--surface-1)] text-[var(--text-secondary)] text-xs uppercase tracking-wide">
                 <th className="text-start px-4 py-2">Date</th>
                 <th className="text-start px-4 py-2">Type</th>
                 <th className="text-start px-4 py-2">Category</th>
@@ -102,7 +102,7 @@ export function BudgetPage() {
             <tbody>
               {data.entries.map((entry: any) => (
                 <tr key={entry.id} className="border-t border-[var(--border)]">
-                  <td className="px-4 py-2 ltr-num">{entry.entryDate}</td>
+                  <td className="px-4 py-2 ltr-num">{formatDate(entry.entryDate)}</td>
                   <td className="px-4 py-2">
                     <StatusBadge status={entry.entryType === 'correction' ? 'at_risk' : entry.entryType === 'committed' ? 'upcoming' : 'on_track'} />
                   </td>
@@ -117,7 +117,7 @@ export function BudgetPage() {
       </div>
 
       {/* Forecast */}
-      <div className="bg-white rounded-xl border border-[var(--border)] p-5">
+      <div className="bg-[var(--surface-0)] rounded-2xl border border-[var(--border)] p-5">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide mb-1">Forecast to Complete</h3>

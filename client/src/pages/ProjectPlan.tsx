@@ -1,9 +1,9 @@
 import { useParams } from 'react-router-dom';
 import { trpc } from '../lib/trpc.js';
-import { StatusBadge } from '../components/StatusBadge.js';
+import { StatusBadge, SectionHeader } from '../components/StatusBadge.js';
 import { Modal, FormField, Input, Select, Button } from '../components/Modal.js';
-import { VentureTabs } from './PMDashboard.js';
 import { useAuth } from '../lib/auth.js';
+import { formatDate } from '../lib/format.js';
 import { useState } from 'react';
 
 export function ProjectPlanPage() {
@@ -11,30 +11,26 @@ export function ProjectPlanPage() {
   const { user } = useAuth();
   const { data: workstreams, isLoading } = trpc.workstreams.list.useQuery({ ventureId: ventureId! });
   const [showAddWs, setShowAddWs] = useState(false);
-
   const isGM = user?.role === 'gm';
 
-  if (isLoading) return <div className="p-8 text-center text-[var(--text-secondary)]">Loading plan...</div>;
+  if (isLoading) return <div className="p-8 text-[var(--text-3)]">Loading plan...</div>;
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
-      <VentureTabs ventureId={ventureId!} active="plan" />
-
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold">Project Plan</h3>
-        {!isGM && <Button onClick={() => setShowAddWs(true)}>Add Workstream</Button>}
-      </div>
+      <SectionHeader
+        title="Project Plan"
+        action={!isGM ? <Button onClick={() => setShowAddWs(true)}>Add Workstream</Button> : undefined}
+      />
 
       {(!workstreams || workstreams.length === 0) ? (
         <div className="text-center py-12">
-          <p className="text-[var(--text-secondary)] mb-4">No workstreams defined yet.</p>
+          <div className="text-4xl mb-4">📋</div>
+          <p className="text-[var(--text-3)] mb-4">No workstreams defined yet.</p>
           {!isGM && <Button onClick={() => setShowAddWs(true)}>Add Your First Workstream</Button>}
         </div>
       ) : (
         <div className="space-y-4">
-          {workstreams.map(ws => (
-            <WorkstreamRow key={ws.id} workstream={ws} ventureId={ventureId!} isGM={isGM} />
-          ))}
+          {workstreams.map(ws => <WorkstreamRow key={ws.id} workstream={ws} ventureId={ventureId!} isGM={isGM} />)}
         </div>
       )}
 
@@ -59,23 +55,23 @@ function WorkstreamRow({ workstream, ventureId, isGM }: { workstream: any; ventu
   });
 
   return (
-    <div className="bg-white rounded-xl border border-[var(--border)] overflow-hidden">
+    <div className="bg-[var(--surface-0)] rounded-2xl border border-[var(--border)] overflow-hidden hover:border-[var(--border-hover)] transition-all">
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full text-start px-5 py-4 flex items-center gap-4 hover:bg-[var(--surface-muted)] transition-colors"
+        className="w-full text-start px-5 py-4 flex items-center gap-4 hover:bg-[var(--surface-1)] transition-colors"
       >
-        <span className="text-xs text-[var(--text-secondary)]">{expanded ? '▼' : '▶'}</span>
+        <span className="text-xs text-[var(--text-3)]">{expanded ? '▼' : '▶'}</span>
         <div className="flex-1">
-          <div className="font-medium">{workstream.name}</div>
-          <div className="text-xs text-[var(--text-secondary)] mt-0.5">
-            Baseline: {workstream.baselineStart ?? '—'} → {workstream.baselineEnd ?? '—'}
-            {workstream.actualStart && <span className="ms-3">Actual: {workstream.actualStart} → {workstream.actualEnd ?? 'ongoing'}</span>}
+          <div className="font-medium text-[var(--text-0)]">{workstream.name}</div>
+          <div className="text-xs text-[var(--text-3)] mt-0.5">
+            Baseline: {formatDate(workstream.baselineStart)} → {formatDate(workstream.baselineEnd)}
+            {workstream.actualStart && <span className="ms-3">Actual: {formatDate(workstream.actualStart)} → {workstream.actualEnd ? formatDate(workstream.actualEnd) : 'ongoing'}</span>}
           </div>
         </div>
         <StatusBadge status={workstream.status} />
         <div className="flex items-center gap-2 min-w-[80px]">
-          <span className="text-sm ltr-num">{workstream.completionPct}%</span>
-          <div className="w-12 bg-gray-100 rounded-full h-1.5">
+          <span className="text-sm text-[var(--text-1)] ltr-num">{workstream.completionPct}%</span>
+          <div className="w-12 bg-[var(--surface-2)] rounded-full h-1.5">
             <div className="h-1.5 rounded-full bg-[var(--accent)]" style={{ width: `${workstream.completionPct}%` }} />
           </div>
         </div>
@@ -83,31 +79,32 @@ function WorkstreamRow({ workstream, ventureId, isGM }: { workstream: any; ventu
 
       {expanded && (
         <div className="border-t border-[var(--border)]">
-          {/* Edit workstream */}
           {!isGM && (
-            <div className="px-5 py-3 bg-blue-50 border-b border-[var(--border)]">
+            <div className="px-5 py-3 bg-[var(--surface-1)] border-b border-[var(--border)]">
               {editing ? (
-                <div className="flex items-end gap-3 flex-wrap">
-                  <FormField label="Status">
-                    <Select value={editForm.status} onChange={e => setEditForm(f => ({ ...f, status: e.target.value }))}>
-                      <option value="not_started">Not Started</option>
-                      <option value="in_progress">In Progress</option>
-                      <option value="complete">Complete</option>
-                      <option value="on_hold">On Hold</option>
-                    </Select>
-                  </FormField>
-                  <FormField label="Completion %">
-                    <Input type="number" min={0} max={100} value={editForm.completionPct} onChange={e => setEditForm(f => ({ ...f, completionPct: Number(e.target.value) }))} />
-                  </FormField>
-                  <FormField label="Actual Start">
-                    <Input type="date" value={editForm.actualStart} onChange={e => setEditForm(f => ({ ...f, actualStart: e.target.value }))} />
-                  </FormField>
-                  <FormField label="Actual End">
-                    <Input type="date" value={editForm.actualEnd} onChange={e => setEditForm(f => ({ ...f, actualEnd: e.target.value }))} />
-                  </FormField>
-                  <div className="flex gap-2 mb-4">
-                    <Button onClick={() => updateWs.mutate({ id: workstream.id, ...editForm, completionPct: editForm.completionPct, status: editForm.status as any, actualStart: editForm.actualStart || null, actualEnd: editForm.actualEnd || null })} disabled={updateWs.isPending}>Save</Button>
+                <div>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                    <FormField label="Status">
+                      <Select value={editForm.status} onChange={e => setEditForm(f => ({ ...f, status: e.target.value }))}>
+                        <option value="not_started">Not Started</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="complete">Complete</option>
+                        <option value="on_hold">On Hold</option>
+                      </Select>
+                    </FormField>
+                    <FormField label="Completion %">
+                      <Input type="number" min={0} max={100} value={editForm.completionPct || ''} onChange={e => setEditForm(f => ({ ...f, completionPct: Number(e.target.value) }))} />
+                    </FormField>
+                    <FormField label="Actual Start">
+                      <Input type="date" value={editForm.actualStart} onChange={e => setEditForm(f => ({ ...f, actualStart: e.target.value }))} />
+                    </FormField>
+                    <FormField label="Actual End">
+                      <Input type="date" value={editForm.actualEnd} onChange={e => setEditForm(f => ({ ...f, actualEnd: e.target.value }))} />
+                    </FormField>
+                  </div>
+                  <div className="flex justify-end gap-2 mt-3">
                     <Button variant="secondary" onClick={() => setEditing(false)}>Cancel</Button>
+                    <Button onClick={() => updateWs.mutate({ id: workstream.id, status: editForm.status as any, completionPct: editForm.completionPct, actualStart: editForm.actualStart || null, actualEnd: editForm.actualEnd || null })} disabled={updateWs.isPending}>Save</Button>
                   </div>
                 </div>
               ) : (
@@ -119,16 +116,13 @@ function WorkstreamRow({ workstream, ventureId, isGM }: { workstream: any; ventu
             </div>
           )}
 
-          {/* Milestones */}
-          <div className="px-5 py-3 bg-[var(--surface-muted)]">
+          <div className="px-5 py-3">
             {milestones && milestones.length > 0 ? (
               <div className="space-y-2">
-                {milestones.map((ms: any) => (
-                  <MilestoneRow key={ms.id} milestone={ms} ventureId={ventureId} isGM={isGM} />
-                ))}
+                {milestones.map((ms: any) => <MilestoneRow key={ms.id} milestone={ms} isGM={isGM} />)}
               </div>
             ) : (
-              <p className="text-xs text-[var(--text-secondary)]">No milestones defined for this workstream.</p>
+              <p className="text-xs text-[var(--text-3)]">No milestones defined.</p>
             )}
           </div>
         </div>
@@ -139,36 +133,28 @@ function WorkstreamRow({ workstream, ventureId, isGM }: { workstream: any; ventu
   );
 }
 
-function MilestoneRow({ milestone, ventureId, isGM }: { milestone: any; ventureId: string; isGM: boolean }) {
+function MilestoneRow({ milestone, isGM }: { milestone: any; isGM: boolean }) {
   const utils = trpc.useUtils();
   const update = trpc.milestones.update.useMutation({
     onSuccess: () => utils.milestones.list.invalidate({ workstreamId: milestone.workstreamId }),
   });
 
+  const icon = milestone.status === 'achieved' ? '✅' : milestone.status === 'overdue' ? '⚠️' : '◯';
+
   return (
-    <div className="flex items-center gap-3 text-sm py-2 px-2 rounded hover:bg-white transition-colors">
-      <span className="text-xs">
-        {milestone.status === 'achieved' ? '✅' : milestone.status === 'overdue' ? '⚠️' : '◯'}
-      </span>
-      <span className="flex-1">{milestone.name}</span>
-      <span className="text-xs text-[var(--text-secondary)] ltr-num">{milestone.dueDate}</span>
+    <div className="flex items-center gap-3 text-sm py-2 px-3 rounded-xl hover:bg-[var(--surface-1)] transition-colors">
+      <span className="text-xs">{icon}</span>
+      <span className="flex-1 text-[var(--text-1)]">{milestone.name}</span>
+      <span className="text-xs text-[var(--text-3)] ltr-num">{formatDate(milestone.dueDate)}</span>
       {milestone.actualCompletionDate && (
-        <span className="text-xs text-green-600 ltr-num">Done: {milestone.actualCompletionDate}</span>
+        <span className="text-xs text-emerald-400 ltr-num">Done: {formatDate(milestone.actualCompletionDate)}</span>
       )}
-      <StatusBadge status={milestone.status} />
+      <StatusBadge status={milestone.status} size="xs" />
       {!isGM && milestone.status !== 'achieved' && (
-        <Button variant="secondary" className="!py-1 !px-2 !text-xs" onClick={() => update.mutate({
-          id: milestone.id,
-          status: 'achieved',
-          actualCompletionDate: new Date().toISOString().split('T')[0],
-        })}>
-          Complete
-        </Button>
+        <Button variant="ghost" className="!py-1 !px-2 !text-xs" onClick={() => update.mutate({ id: milestone.id, status: 'achieved', actualCompletionDate: new Date().toISOString().split('T')[0] })}>Complete</Button>
       )}
       {!isGM && milestone.status !== 'deferred' && milestone.status !== 'achieved' && (
-        <Button variant="secondary" className="!py-1 !px-2 !text-xs" onClick={() => update.mutate({ id: milestone.id, status: 'deferred' })}>
-          Defer
-        </Button>
+        <Button variant="ghost" className="!py-1 !px-2 !text-xs" onClick={() => update.mutate({ id: milestone.id, status: 'deferred' })}>Defer</Button>
       )}
     </div>
   );
@@ -176,16 +162,8 @@ function MilestoneRow({ milestone, ventureId, isGM }: { milestone: any; ventureI
 
 function AddWorkstreamForm({ open, onClose, ventureId }: { open: boolean; onClose: () => void; ventureId: string }) {
   const utils = trpc.useUtils();
-  const create = trpc.workstreams.create.useMutation({
-    onSuccess: () => { utils.workstreams.list.invalidate({ ventureId }); onClose(); },
-  });
+  const create = trpc.workstreams.create.useMutation({ onSuccess: () => { utils.workstreams.list.invalidate({ ventureId }); onClose(); } });
   const [form, setForm] = useState({ name: '', baselineStart: '', baselineEnd: '' });
-
-  const handleSubmit = () => {
-    if (!form.name.trim()) return;
-    create.mutate({ ventureId, ...form, baselineStart: form.baselineStart || undefined, baselineEnd: form.baselineEnd || undefined });
-    setForm({ name: '', baselineStart: '', baselineEnd: '' });
-  };
 
   return (
     <Modal open={open} onClose={onClose} title="Add Workstream">
@@ -196,7 +174,7 @@ function AddWorkstreamForm({ open, onClose, ventureId }: { open: boolean; onClos
       </div>
       <div className="flex justify-end gap-2 mt-4">
         <Button variant="secondary" onClick={onClose}>Cancel</Button>
-        <Button onClick={handleSubmit} disabled={create.isPending || !form.name.trim()}>{create.isPending ? 'Saving...' : 'Add Workstream'}</Button>
+        <Button onClick={() => { if (form.name.trim()) { create.mutate({ ventureId, ...form, baselineStart: form.baselineStart || undefined, baselineEnd: form.baselineEnd || undefined }); setForm({ name: '', baselineStart: '', baselineEnd: '' }); } }} disabled={create.isPending || !form.name.trim()}>{create.isPending ? 'Saving...' : 'Add Workstream'}</Button>
       </div>
     </Modal>
   );
@@ -204,16 +182,8 @@ function AddWorkstreamForm({ open, onClose, ventureId }: { open: boolean; onClos
 
 function AddMilestoneForm({ open, onClose, workstreamId }: { open: boolean; onClose: () => void; workstreamId: string }) {
   const utils = trpc.useUtils();
-  const create = trpc.milestones.create.useMutation({
-    onSuccess: () => { utils.milestones.list.invalidate({ workstreamId }); onClose(); },
-  });
+  const create = trpc.milestones.create.useMutation({ onSuccess: () => { utils.milestones.list.invalidate({ workstreamId }); onClose(); } });
   const [form, setForm] = useState({ name: '', dueDate: '', notes: '' });
-
-  const handleSubmit = () => {
-    if (!form.name.trim() || !form.dueDate) return;
-    create.mutate({ workstreamId, ...form, notes: form.notes || undefined });
-    setForm({ name: '', dueDate: '', notes: '' });
-  };
 
   return (
     <Modal open={open} onClose={onClose} title="Add Milestone">
@@ -222,7 +192,7 @@ function AddMilestoneForm({ open, onClose, workstreamId }: { open: boolean; onCl
       <FormField label="Notes"><Input value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} placeholder="Optional notes" /></FormField>
       <div className="flex justify-end gap-2 mt-4">
         <Button variant="secondary" onClick={onClose}>Cancel</Button>
-        <Button onClick={handleSubmit} disabled={create.isPending || !form.name.trim() || !form.dueDate}>{create.isPending ? 'Saving...' : 'Add Milestone'}</Button>
+        <Button onClick={() => { if (form.name.trim() && form.dueDate) { create.mutate({ workstreamId, ...form, notes: form.notes || undefined }); setForm({ name: '', dueDate: '', notes: '' }); } }} disabled={create.isPending || !form.name.trim() || !form.dueDate}>{create.isPending ? 'Saving...' : 'Add Milestone'}</Button>
       </div>
     </Modal>
   );

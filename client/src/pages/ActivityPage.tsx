@@ -1,5 +1,6 @@
 import { trpc } from '../lib/trpc.js';
 import { useAuth } from '../lib/auth.js';
+import { formatDate } from '../lib/format.js';
 
 const actionIcons: Record<string, string> = {
   created: '➕', updated: '✏️', deleted: '🗑', escalated: '🔺', resolved: '✅', approved: '👍', rejected: '❌',
@@ -12,41 +13,42 @@ const actionColors: Record<string, string> = {
 
 export function ActivityPage() {
   const { user } = useAuth();
-
-  // For PM, we need their venture ID — get it from dashboard
   const { data: pmData } = trpc.dashboard.pm.useQuery(undefined, { enabled: user?.role === 'pm' });
-  const ventureId = pmData?.venture?.id;
-
-  // PMO sees all activity — use first venture as proxy (or we'd need a cross-venture audit endpoint)
-  // For now show a message if no ventureId
   const { data: ventures } = trpc.ventures.list.useQuery(undefined, { enabled: user?.role === 'pmo' });
-  const allVentureIds = ventures?.map((v: any) => v.id) ?? [];
+
+  const ventureIds = user?.role === 'pm'
+    ? (pmData?.venture?.id ? [pmData.venture.id] : [])
+    : (ventures?.map((v: any) => v.id) ?? []);
 
   return (
     <div className="p-8 max-w-3xl mx-auto">
       <h2 className="text-2xl font-bold text-[var(--text-0)] mb-8">Activity Feed</h2>
-
-      {user?.role === 'pm' && ventureId && <VentureActivity ventureId={ventureId} />}
-      {user?.role === 'pmo' && allVentureIds.map((vid: string) => (
-        <div key={vid} className="mb-8">
-          <VentureActivity ventureId={vid} />
-        </div>
-      ))}
-      {user?.role === 'gm' && <p className="text-[var(--text-3)]">Activity feed is not available for GM role.</p>}
+      {ventureIds.length > 0 ? (
+        <CombinedActivity ventureIds={ventureIds} />
+      ) : (
+        <EmptyActivity />
+      )}
     </div>
   );
 }
 
-function VentureActivity({ ventureId }: { ventureId: string }) {
-  const { data, isLoading } = trpc.audit.list.useQuery({ ventureId });
+function CombinedActivity({ ventureIds }: { ventureIds: string[] }) {
+  // Fetch all venture audit trails
+  const queries = ventureIds.map(id => trpc.audit.list.useQuery({ ventureId: id }));
+  const isLoading = queries.some(q => q.isLoading);
 
   if (isLoading) return <div className="text-[var(--text-3)]">Loading activity...</div>;
-  if (!data || data.length === 0) return <p className="text-[var(--text-3)]">No activity recorded yet.</p>;
+
+  // Combine all entries and sort by date desc
+  const allEntries = queries.flatMap(q => (q.data as any[]) ?? []);
+  allEntries.sort((a, b) => new Date(b.changedAt).getTime() - new Date(a.changedAt).getTime());
+
+  if (allEntries.length === 0) return <EmptyActivity />;
 
   // Group by date
-  const grouped: Record<string, typeof data> = {};
-  data.forEach((entry: any) => {
-    const date = new Date(entry.changedAt).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+  const grouped: Record<string, any[]> = {};
+  allEntries.forEach(entry => {
+    const date = formatDate(entry.changedAt);
     (grouped[date] ??= []).push(entry);
   });
 
@@ -56,7 +58,7 @@ function VentureActivity({ ventureId }: { ventureId: string }) {
         <div key={date} className="mb-6">
           <div className="text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-widest mb-3">{date}</div>
           <div className="space-y-1">
-            {(entries as any[]).map((entry: any, i: number) => (
+            {entries.map((entry: any, i: number) => (
               <div
                 key={entry.id}
                 className="flex items-start gap-3 px-4 py-3 rounded-xl hover:bg-[var(--surface-0)] transition-colors animate-in"
@@ -68,9 +70,7 @@ function VentureActivity({ ventureId }: { ventureId: string }) {
                     <span className={`font-medium ${actionColors[entry.action] ?? ''}`}>{entry.action}</span>
                     {' '}
                     <span className="text-[var(--text-2)]">{entry.entityType}</span>
-                    {entry.fieldName && (
-                      <span className="text-[var(--text-3)]"> — {entry.fieldName}</span>
-                    )}
+                    {entry.fieldName && <span className="text-[var(--text-3)]"> — {entry.fieldName}</span>}
                   </div>
                   {(entry.oldValue || entry.newValue) && (
                     <div className="text-xs text-[var(--text-3)] mt-1 font-mono">
@@ -87,6 +87,16 @@ function VentureActivity({ ventureId }: { ventureId: string }) {
           </div>
         </div>
       ))}
+    </div>
+  );
+}
+
+function EmptyActivity() {
+  return (
+    <div className="text-center py-12">
+      <div className="text-4xl mb-4">⏱</div>
+      <h3 className="text-base font-semibold text-[var(--text-0)] mb-2">No Activity Yet</h3>
+      <p className="text-sm text-[var(--text-3)]">Changes will appear here as you work on ventures.</p>
     </div>
   );
 }

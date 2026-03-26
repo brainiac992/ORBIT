@@ -85,7 +85,7 @@ export function WeeklyUpdatePage() {
             min={0} max={100}
             value={completionPct}
             onChange={e => setCompletionPct(Number(e.target.value))}
-            className="mt-1 block w-24 border border-[var(--border)] rounded-lg px-3 py-2 text-sm"
+            className="mt-1 block w-24 border border-[var(--border)] bg-[var(--surface-1)] rounded-lg px-3 py-2 text-sm"
           />
         </div>
       </FormSection>
@@ -97,7 +97,7 @@ export function WeeklyUpdatePage() {
           onChange={e => setNarrative(e.target.value)}
           rows={4}
           placeholder="What progressed, what didn't, what changed."
-          className="w-full border border-[var(--border)] rounded-lg px-3 py-2 text-sm resize-none"
+          className="w-full border border-[var(--border)] bg-[var(--surface-1)] rounded-lg px-3 py-2 text-sm resize-none"
         />
       </FormSection>
 
@@ -108,12 +108,12 @@ export function WeeklyUpdatePage() {
             {workstreams.map(ws => {
               const current = wsUpdates[ws.id] ?? { status: ws.status, pct: ws.completionPct };
               return (
-                <div key={ws.id} className="flex items-center gap-3 bg-[var(--surface-muted)] rounded-lg px-4 py-3">
+                <div key={ws.id} className="flex items-center gap-3 bg-[var(--surface-0)] rounded-lg px-4 py-3">
                   <span className="flex-1 text-sm font-medium">{ws.name}</span>
                   <select
                     value={current.status}
                     onChange={e => setWsUpdates(prev => ({ ...prev, [ws.id]: { ...current, status: e.target.value } }))}
-                    className="border border-[var(--border)] rounded px-2 py-1 text-xs"
+                    className="border border-[var(--border)] bg-[var(--surface-1)] rounded px-2 py-1 text-xs"
                   >
                     <option value="not_started">Not Started</option>
                     <option value="in_progress">In Progress</option>
@@ -124,7 +124,7 @@ export function WeeklyUpdatePage() {
                     type="number" min={0} max={100}
                     value={current.pct}
                     onChange={e => setWsUpdates(prev => ({ ...prev, [ws.id]: { ...current, pct: Number(e.target.value) } }))}
-                    className="w-16 border border-[var(--border)] rounded px-2 py-1 text-xs text-end"
+                    className="w-16 border border-[var(--border)] bg-[var(--surface-1)] rounded px-2 py-1 text-xs text-end"
                   />
                   <span className="text-xs text-[var(--text-secondary)]">%</span>
                 </div>
@@ -163,7 +163,7 @@ export function WeeklyUpdatePage() {
       <FormSection title="Blockers">
         {blockersList.map((b, i) => (
           <div key={i} className="flex gap-2 mb-2">
-            <span className="text-sm py-2 px-3 bg-[var(--surface-muted)] rounded-lg flex-1">{b}</span>
+            <span className="text-sm py-2 px-3 bg-[var(--surface-0)] rounded-lg flex-1">{b}</span>
           </div>
         ))}
         <div className="flex gap-2">
@@ -171,7 +171,7 @@ export function WeeklyUpdatePage() {
             value={newBlocker}
             onChange={e => setNewBlocker(e.target.value)}
             placeholder="Describe a blocker"
-            className="flex-1 border border-[var(--border)] rounded-lg px-3 py-2 text-sm"
+            className="flex-1 border border-[var(--border)] bg-[var(--surface-1)] rounded-lg px-3 py-2 text-sm"
             onKeyDown={e => {
               if (e.key === 'Enter' && newBlocker.trim()) {
                 setBlockersList(prev => [...prev, newBlocker.trim()]);
@@ -181,7 +181,7 @@ export function WeeklyUpdatePage() {
           />
           <button
             onClick={() => { if (newBlocker.trim()) { setBlockersList(prev => [...prev, newBlocker.trim()]); setNewBlocker(''); } }}
-            className="px-3 py-2 text-sm border border-[var(--border)] rounded-lg hover:bg-gray-50"
+            className="px-3 py-2 text-sm border border-[var(--border)] bg-[var(--surface-1)] rounded-lg hover:bg-gray-50"
           >
             Add
           </button>
@@ -192,7 +192,7 @@ export function WeeklyUpdatePage() {
       <FormSection title="Decisions Needed">
         {decisionsList.map((d, i) => (
           <div key={i} className="flex gap-2 mb-2">
-            <span className="text-sm py-2 px-3 bg-[var(--surface-muted)] rounded-lg flex-1">{d}</span>
+            <span className="text-sm py-2 px-3 bg-[var(--surface-0)] rounded-lg flex-1">{d}</span>
           </div>
         ))}
         <div className="flex gap-2">
@@ -200,7 +200,7 @@ export function WeeklyUpdatePage() {
             value={newDecision}
             onChange={e => setNewDecision(e.target.value)}
             placeholder="Describe a decision needed"
-            className="flex-1 border border-[var(--border)] rounded-lg px-3 py-2 text-sm"
+            className="flex-1 border border-[var(--border)] bg-[var(--surface-1)] rounded-lg px-3 py-2 text-sm"
             onKeyDown={e => {
               if (e.key === 'Enter' && newDecision.trim()) {
                 setDecisionsList(prev => [...prev, newDecision.trim()]);
@@ -210,7 +210,7 @@ export function WeeklyUpdatePage() {
           />
           <button
             onClick={() => { if (newDecision.trim()) { setDecisionsList(prev => [...prev, newDecision.trim()]); setNewDecision(''); } }}
-            className="px-3 py-2 text-sm border border-[var(--border)] rounded-lg hover:bg-gray-50"
+            className="px-3 py-2 text-sm border border-[var(--border)] bg-[var(--surface-1)] rounded-lg hover:bg-gray-50"
           >
             Add
           </button>
@@ -224,7 +224,7 @@ export function WeeklyUpdatePage() {
           onChange={e => setNextActions(e.target.value)}
           rows={3}
           placeholder="What's planned for next week"
-          className="w-full border border-[var(--border)] rounded-lg px-3 py-2 text-sm resize-none"
+          className="w-full border border-[var(--border)] bg-[var(--surface-1)] rounded-lg px-3 py-2 text-sm resize-none"
         />
       </FormSection>
 

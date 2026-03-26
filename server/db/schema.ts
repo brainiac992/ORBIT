@@ -175,7 +175,7 @@ export const milestoneCompletions = pgTable('milestone_completions', {
 
 export const blockers = pgTable('blockers', {
   id: uuid('id').primaryKey().defaultRandom(),
-  progressUpdateId: uuid('progress_update_id').references(() => progressUpdates.id).notNull(),
+  progressUpdateId: uuid('progress_update_id').references(() => progressUpdates.id),
   ventureId: uuid('venture_id').references(() => ventures.id).notNull(),
   description: text('description').notNull(),
   status: blockerStatusEnum('status').default('open').notNull(),

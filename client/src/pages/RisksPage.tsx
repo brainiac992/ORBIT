@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { trpc } from '../lib/trpc.js';
-import { StatusBadge } from '../components/StatusBadge.js';
+import { StatusBadge, SectionHeader } from '../components/StatusBadge.js';
 import { Modal, FormField, Input, TextArea, Select, Button } from '../components/Modal.js';
-import { VentureTabs } from './PMDashboard.js';
 import { useAuth } from '../lib/auth.js';
+import { formatDate } from '../lib/format.js';
 
 export function RisksPage() {
   const { ventureId } = useParams<{ ventureId: string }>();
@@ -16,8 +16,9 @@ export function RisksPage() {
 
   const [showRiskForm, setShowRiskForm] = useState(false);
   const [showIssueForm, setShowIssueForm] = useState(false);
+  const [showBlockerForm, setShowBlockerForm] = useState(false);
 
-  if (risksLoading || issuesLoading) return <div className="p-8 text-center text-[var(--text-secondary)]">Loading risks...</div>;
+  if (risksLoading || issuesLoading) return <div className="p-8 text-center text-[var(--text-3)]">Loading risks...</div>;
 
   const isGM = user?.role === 'gm';
   const openRisks = risksList?.filter(r => r.status === 'open') ?? [];
@@ -44,7 +45,7 @@ export function RisksPage() {
       </div>
 
       {openRisks.length === 0 ? (
-        <p className="text-[var(--text-secondary)] mb-6">No open risks.</p>
+        <p className="text-[var(--text-3)] mb-6">No open risks.</p>
       ) : (
         <div className="space-y-3 mb-6">
           {openRisks.map(r => (
@@ -55,10 +56,10 @@ export function RisksPage() {
 
       {closedRisks.length > 0 && (
         <details className="mb-8">
-          <summary className="text-sm text-[var(--text-secondary)] cursor-pointer mb-2">Closed Risks ({closedRisks.length})</summary>
+          <summary className="text-sm text-[var(--text-3)] cursor-pointer mb-2">Closed Risks ({closedRisks.length})</summary>
           <div className="space-y-2">
             {closedRisks.map(r => (
-              <div key={r.id} className="bg-gray-50 rounded-lg p-3 text-sm text-[var(--text-secondary)] flex items-center gap-2">
+              <div key={r.id} className="bg-[var(--surface-1)] rounded-xl p-3 text-sm text-[var(--text-3)] flex items-center gap-2">
                 <span className="flex-1">{r.title}</span>
                 <StatusBadge status={r.status} />
               </div>
@@ -74,7 +75,7 @@ export function RisksPage() {
       </div>
 
       {openIssues.length === 0 ? (
-        <p className="text-[var(--text-secondary)] mb-6">No open issues.</p>
+        <p className="text-[var(--text-3)] mb-6">No open issues.</p>
       ) : (
         <div className="space-y-3 mb-6">
           {openIssues.map(i => (
@@ -85,10 +86,10 @@ export function RisksPage() {
 
       {resolvedIssues.length > 0 && (
         <details className="mb-8">
-          <summary className="text-sm text-[var(--text-secondary)] cursor-pointer mb-2">Resolved Issues ({resolvedIssues.length})</summary>
+          <summary className="text-sm text-[var(--text-3)] cursor-pointer mb-2">Resolved Issues ({resolvedIssues.length})</summary>
           <div className="space-y-2">
             {resolvedIssues.map(i => (
-              <div key={i.id} className="bg-gray-50 rounded-lg p-3 text-sm text-[var(--text-secondary)] flex items-center gap-2">
+              <div key={i.id} className="bg-[var(--surface-1)] rounded-xl p-3 text-sm text-[var(--text-3)] flex items-center gap-2">
                 <span className="flex-1">{i.title}</span>
                 <StatusBadge status={i.status} />
               </div>
@@ -99,11 +100,12 @@ export function RisksPage() {
 
       {/* ── Blockers ─────────────────────── */}
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold">Blockers</h3>
+        <h3 className="text-lg font-semibold text-[var(--text-0)]">Blockers</h3>
+        {!isGM && <Button variant="secondary" onClick={() => setShowBlockerForm(true)}>Add Blocker</Button>}
       </div>
 
       {openBlockers.length === 0 ? (
-        <p className="text-[var(--text-secondary)] mb-6">No open blockers.</p>
+        <p className="text-[var(--text-3)] mb-6">No open blockers.</p>
       ) : (
         <div className="space-y-3 mb-6">
           {openBlockers.map(b => (
@@ -114,10 +116,10 @@ export function RisksPage() {
 
       {resolvedBlockers.length > 0 && (
         <details>
-          <summary className="text-sm text-[var(--text-secondary)] cursor-pointer mb-2">Resolved Blockers ({resolvedBlockers.length})</summary>
+          <summary className="text-sm text-[var(--text-3)] cursor-pointer mb-2">Resolved Blockers ({resolvedBlockers.length})</summary>
           <div className="space-y-2">
             {resolvedBlockers.map(b => (
-              <div key={b.id} className="bg-gray-50 rounded-lg p-3 text-sm text-[var(--text-secondary)] line-through">{b.description}</div>
+              <div key={b.id} className="bg-[var(--surface-1)] rounded-xl p-3 text-sm text-[var(--text-3)] line-through">{b.description}</div>
             ))}
           </div>
         </details>
@@ -126,6 +128,7 @@ export function RisksPage() {
       {/* ── Forms ────────────────────────── */}
       <CreateRiskForm open={showRiskForm} onClose={() => setShowRiskForm(false)} ventureId={ventureId!} />
       <CreateIssueForm open={showIssueForm} onClose={() => setShowIssueForm(false)} ventureId={ventureId!} />
+      <CreateBlockerForm open={showBlockerForm} onClose={() => setShowBlockerForm(false)} ventureId={ventureId!} />
     </div>
   );
 }
@@ -139,18 +142,18 @@ function RiskCard({ risk, ragBorder, ventureId, isGM }: { risk: any; ragBorder: 
   });
 
   return (
-    <div className={`bg-white rounded-lg border border-[var(--border)] p-4 ${ragBorder[risk.rag] ?? ''}`}>
+    <div className={`bg-[var(--surface-0)] rounded-xl border border-[var(--border)] p-4 ${ragBorder[risk.rag] ?? ''}`}>
       <div className="flex items-center justify-between mb-2">
         <span className="font-medium text-sm">{risk.title}</span>
         <StatusBadge status={risk.status} />
       </div>
-      {risk.description && <p className="text-xs text-[var(--text-secondary)] mb-2">{risk.description}</p>}
-      <div className="flex gap-4 text-xs text-[var(--text-secondary)] mb-2">
+      {risk.description && <p className="text-xs text-[var(--text-3)] mb-2">{risk.description}</p>}
+      <div className="flex gap-4 text-xs text-[var(--text-3)] mb-2">
         <span>Impact: {risk.impact}</span>
         <span>Probability: {risk.probability}</span>
         <span>Owner: {risk.owner ?? '—'}</span>
       </div>
-      {risk.mitigationPlan && <p className="text-xs text-[var(--text-secondary)] mb-3">Mitigation: {risk.mitigationPlan}</p>}
+      {risk.mitigationPlan && <p className="text-xs text-[var(--text-3)] mb-3">Mitigation: {risk.mitigationPlan}</p>}
       {risk.escalated && <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full me-2">Escalated</span>}
 
       {!isGM && (
@@ -183,17 +186,17 @@ function IssueCard({ issue, ventureId, isGM }: { issue: any; ventureId: string; 
   });
 
   return (
-    <div className="bg-white rounded-lg border border-[var(--border)] p-4">
+    <div className="bg-[var(--surface-0)] rounded-xl border border-[var(--border)] p-4">
       <div className="flex items-center justify-between mb-2">
         <span className="font-medium text-sm">{issue.title}</span>
         <StatusBadge status={issue.status} />
       </div>
-      {issue.description && <p className="text-xs text-[var(--text-secondary)] mb-2">{issue.description}</p>}
-      <div className="flex gap-4 text-xs text-[var(--text-secondary)] mb-1">
+      {issue.description && <p className="text-xs text-[var(--text-3)] mb-2">{issue.description}</p>}
+      <div className="flex gap-4 text-xs text-[var(--text-3)] mb-1">
         <span>Severity: {issue.severity}</span>
         <span>Owner: {issue.owner ?? '—'}</span>
       </div>
-      {issue.resolutionPlan && <p className="text-xs text-[var(--text-secondary)] mb-3">Resolution: {issue.resolutionPlan}</p>}
+      {issue.resolutionPlan && <p className="text-xs text-[var(--text-3)] mb-3">Resolution: {issue.resolutionPlan}</p>}
       {issue.escalated && <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full me-2">Escalated</span>}
 
       {!isGM && (
@@ -315,6 +318,36 @@ function CreateIssueForm({ open, onClose, ventureId }: { open: boolean; onClose:
       <div className="flex justify-end gap-2 mt-4">
         <Button variant="secondary" onClick={onClose}>Cancel</Button>
         <Button onClick={handleSubmit} disabled={create.isPending || !form.title.trim()}>{create.isPending ? 'Saving...' : 'Log Issue'}</Button>
+      </div>
+    </Modal>
+  );
+}
+
+// ── Create Blocker Form ─────────────────────────
+
+function CreateBlockerForm({ open, onClose, ventureId }: { open: boolean; onClose: () => void; ventureId: string }) {
+  const utils = trpc.useUtils();
+  const create = trpc.risks.createBlocker.useMutation({
+    onSuccess: () => { utils.risks.listBlockers.invalidate({ ventureId }); utils.dashboard.pm.invalidate(); onClose(); },
+  });
+  const [description, setDescription] = useState('');
+
+  const handleSubmit = () => {
+    if (!description.trim()) return;
+    create.mutate({ ventureId, description });
+    setDescription('');
+  };
+
+  return (
+    <Modal open={open} onClose={onClose} title="Add Blocker">
+      <FormField label="Description" required>
+        <TextArea value={description} onChange={e => setDescription(e.target.value)} rows={3} placeholder="What is blocking progress?" />
+      </FormField>
+      <div className="flex justify-end gap-2 mt-4">
+        <Button variant="secondary" onClick={onClose}>Cancel</Button>
+        <Button onClick={handleSubmit} disabled={create.isPending || !description.trim()}>
+          {create.isPending ? 'Saving...' : 'Add Blocker'}
+        </Button>
       </div>
     </Modal>
   );

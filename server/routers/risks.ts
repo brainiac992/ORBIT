@@ -214,6 +214,28 @@ export const risksRouter = router({
         .where(eq(decisions.status, 'open'));
     }),
 
+  // ── Create standalone blocker ───────────────────
+
+  createBlocker: protectedProcedure
+    .input(z.object({
+      ventureId: z.string().uuid(),
+      description: z.string().min(1),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      await assertVentureReadAccess(ctx, input.ventureId);
+      if (ctx.user.role === 'gm') throw new TRPCError({ code: 'FORBIDDEN' });
+
+      // Create blocker without a progress update link
+      const [blocker] = await ctx.db.insert(blockers).values({
+        progressUpdateId: null as any, // standalone blocker
+        ventureId: input.ventureId,
+        description: input.description,
+        status: 'open',
+      }).returning();
+
+      return blocker;
+    }),
+
   // ── Per-venture blockers ────────────────────────
 
   listBlockers: protectedProcedure

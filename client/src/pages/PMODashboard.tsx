@@ -1,9 +1,10 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { trpc } from '../lib/trpc.js';
-import { HealthDot, StatusBadge, KpiCard, formatAED, SectionHeader } from '../components/StatusBadge.js';
+import { HealthDot, StatusBadge, KpiCard, SectionHeader } from '../components/StatusBadge.js';
 import { Modal, FormField, Input, TextArea, Select, Button } from '../components/Modal.js';
 import { useExportPortfolio } from '../hooks/useExport.js';
+import { formatDate, daysSince } from '../lib/format.js';
 
 type Tab = 'ventures' | 'escalations' | 'decisions' | 'blockers' | 'resources';
 
@@ -35,12 +36,11 @@ export function PMODashboard() {
       <div className="flex items-center justify-between mb-8">
         <h2 className="text-2xl font-bold text-[var(--text-0)]">Venture Oversight</h2>
         <div className="flex gap-2 no-print">
-          <Button variant="ghost" onClick={exportCSV} className="!text-xs">Export Portfolio CSV</Button>
+          <Button variant="ghost" onClick={exportCSV} className="!text-xs">Export CSV</Button>
           <Button onClick={() => setShowCreateVenture(true)}>Create Venture</Button>
         </div>
       </div>
 
-      {/* KPI strip */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <KpiCard label="Active Ventures" value={data.ventures.length} />
         <KpiCard label="Escalations" value={escalationCount} accent={escalationCount > 0 ? 'text-red-400' : 'text-emerald-400'} />
@@ -48,7 +48,6 @@ export function PMODashboard() {
         <KpiCard label="Open Blockers" value={blockerCount} accent={blockerCount > 0 ? 'text-red-400' : 'text-emerald-400'} />
       </div>
 
-      {/* Tabs */}
       <div className="flex gap-1 mb-6 bg-[var(--surface-0)] rounded-xl p-1 border border-[var(--border)] no-print">
         {tabs.map(tab => (
           <button
@@ -82,18 +81,7 @@ export function PMODashboard() {
 }
 
 function VenturesTable({ ventures, onSelect }: { ventures: any[]; onSelect: (id: string) => void }) {
-  if (ventures.length === 0) {
-    return (
-      <div className="text-center py-12">
-        <div className="text-4xl mb-4">🏗</div>
-        <p className="text-[var(--text-3)]">No ventures created yet.</p>
-      </div>
-    );
-  }
-
-  function daysSince(dateStr: string) {
-    return Math.floor((Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24));
-  }
+  if (ventures.length === 0) return <EmptyState icon="🏗" text="No ventures created yet." />;
 
   return (
     <div className="bg-[var(--surface-0)] rounded-2xl border border-[var(--border)] overflow-hidden">
@@ -145,7 +133,7 @@ function VenturesTable({ ventures, onSelect }: { ventures: any[]; onSelect: (id:
 
 function EscalationsPanel({ data }: { data: { risks: any[]; issues: any[] } }) {
   const all = [...data.risks.map(r => ({ ...r, type: 'Risk' })), ...data.issues.map(i => ({ ...i, type: 'Issue' }))];
-  if (all.length === 0) return <EmptyState icon="✅" text="No open escalations across ventures." />;
+  if (all.length === 0) return <EmptyState icon="✅" text="No open escalations." />;
   return (
     <div className="space-y-3">
       {all.map((item, i) => (
@@ -164,14 +152,14 @@ function EscalationsPanel({ data }: { data: { risks: any[]; issues: any[] } }) {
 function DecisionsPanel({ items }: { items: any[] }) {
   const utils = trpc.useUtils();
   const resolve = trpc.risks.resolveDecision.useMutation({ onSuccess: () => utils.dashboard.pmo.invalidate() });
-  if (items.length === 0) return <EmptyState icon="✅" text="No open decisions across ventures." />;
+  if (items.length === 0) return <EmptyState icon="✅" text="No open decisions." />;
   return (
     <div className="space-y-3">
       {items.map((d: any, i: number) => (
         <div key={d.id} className="bg-[var(--surface-0)] rounded-xl border border-[var(--border)] p-4 flex items-center justify-between animate-in" style={{ animationDelay: `${i * 30}ms` }}>
           <div>
             <span className="text-sm font-medium text-[var(--text-0)]">{d.description}</span>
-            <p className="text-xs text-[var(--text-3)] mt-0.5">Logged {new Date(d.createdAt ?? Date.now()).toLocaleDateString()}</p>
+            <p className="text-xs text-[var(--text-3)] mt-0.5">Logged {formatDate(d.createdAt)}</p>
           </div>
           <Button variant="secondary" onClick={() => resolve.mutate({ id: d.id })}>Resolve</Button>
         </div>
@@ -183,14 +171,17 @@ function DecisionsPanel({ items }: { items: any[] }) {
 function BlockersPanel({ items }: { items: any[] }) {
   const utils = trpc.useUtils();
   const resolve = trpc.risks.resolveBlocker.useMutation({ onSuccess: () => utils.dashboard.pmo.invalidate() });
-  if (items.length === 0) return <EmptyState icon="✅" text="No open blockers across ventures." />;
+  if (items.length === 0) return <EmptyState icon="✅" text="No open blockers." />;
   return (
     <div className="space-y-3">
       {items.map((b: any, i: number) => (
         <div key={b.id} className="bg-[var(--surface-0)] rounded-xl border border-[var(--border)] p-4 flex items-center justify-between animate-in" style={{ animationDelay: `${i * 30}ms` }}>
           <div className="flex items-start gap-2">
             <span className="text-amber-400 mt-0.5">●</span>
-            <span className="text-sm text-[var(--text-1)]">{b.description}</span>
+            <div>
+              <span className="text-sm text-[var(--text-1)]">{b.description}</span>
+              <p className="text-xs text-[var(--text-3)] mt-0.5">Logged {formatDate(b.createdAt)}</p>
+            </div>
           </div>
           <Button variant="secondary" onClick={() => resolve.mutate({ id: b.id })}>Resolve</Button>
         </div>
@@ -224,14 +215,9 @@ function ResourcesPanel() {
               <td className="px-5 py-3">
                 <div className="flex items-center gap-2">
                   <div className="w-16 bg-[var(--surface-2)] rounded-full h-2">
-                    <div
-                      className={`h-2 rounded-full transition-all ${r.overAllocated ? 'bg-red-500' : 'bg-[var(--accent)]'}`}
-                      style={{ width: `${Math.min(100, (r.totalHoursPerWeek / 40) * 100)}%` }}
-                    />
+                    <div className={`h-2 rounded-full ${r.overAllocated ? 'bg-red-500' : 'bg-[var(--accent)]'}`} style={{ width: `${Math.min(100, (r.totalHoursPerWeek / 40) * 100)}%` }} />
                   </div>
-                  <span className={`text-xs ltr-num font-medium ${r.overAllocated ? 'text-red-400' : 'text-[var(--text-2)]'}`}>
-                    {r.totalHoursPerWeek}h
-                  </span>
+                  <span className={`text-xs ltr-num font-medium ${r.overAllocated ? 'text-red-400' : 'text-[var(--text-2)]'}`}>{r.totalHoursPerWeek}h</span>
                   {r.overAllocated && <span className="text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded-full">Over</span>}
                 </div>
               </td>
@@ -254,22 +240,58 @@ function EmptyState({ icon, text }: { icon: string; text: string }) {
 
 function CreateVentureForm({ open, onClose }: { open: boolean; onClose: () => void }) {
   const utils = trpc.useUtils();
-  const create = trpc.ventures.create.useMutation({ onSuccess: () => { utils.dashboard.pmo.invalidate(); onClose(); } });
+  const { data: allUsers } = trpc.ventures.list.useQuery(undefined, { enabled: open });
+  const create = trpc.ventures.create.useMutation({
+    onSuccess: () => {
+      utils.dashboard.pmo.invalidate();
+      setForm({ name: '', description: '', ventureType: '', pmUserId: '', startDate: '', targetEndDate: '' });
+      onClose();
+    },
+  });
   const [form, setForm] = useState({ name: '', description: '', ventureType: '', pmUserId: '', startDate: '', targetEndDate: '' });
+
+  const canSubmit = form.name.trim() && form.pmUserId && form.startDate;
+
+  const handleSubmit = () => {
+    if (!canSubmit) return;
+    create.mutate({
+      name: form.name,
+      description: form.description || undefined,
+      ventureType: form.ventureType || undefined,
+      pmUserId: form.pmUserId,
+      startDate: form.startDate,
+      targetEndDate: form.targetEndDate || form.startDate, // default to start if empty
+    });
+  };
 
   return (
     <Modal open={open} onClose={onClose} title="Create Venture">
-      <FormField label="Venture Name" required><Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. DARI.AE" /></FormField>
-      <FormField label="Description"><TextArea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={2} placeholder="Brief description" /></FormField>
-      <FormField label="Venture Type"><Input value={form.ventureType} onChange={e => setForm(f => ({ ...f, ventureType: e.target.value }))} placeholder="e.g. Technology Platform" /></FormField>
-      <FormField label="Assigned PM (User ID)" required><Input value={form.pmUserId} onChange={e => setForm(f => ({ ...f, pmUserId: e.target.value }))} placeholder="PM user UUID" /></FormField>
+      <FormField label="Venture Name" required>
+        <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. DARI.AE" />
+      </FormField>
+      <FormField label="Description">
+        <TextArea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={2} placeholder="Brief description" />
+      </FormField>
+      <FormField label="Venture Type">
+        <Input value={form.ventureType} onChange={e => setForm(f => ({ ...f, ventureType: e.target.value }))} placeholder="e.g. Technology Platform" />
+      </FormField>
+      <FormField label="Assigned PM" required>
+        <Input value={form.pmUserId} onChange={e => setForm(f => ({ ...f, pmUserId: e.target.value }))} placeholder="Enter PM user ID (UUID)" />
+        <p className="text-[10px] text-[var(--text-3)] mt-1">Paste the PM's user UUID from the database</p>
+      </FormField>
       <div className="grid grid-cols-2 gap-4">
-        <FormField label="Start Date" required><Input type="date" value={form.startDate} onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))} /></FormField>
-        <FormField label="Target End Date" required><Input type="date" value={form.targetEndDate} onChange={e => setForm(f => ({ ...f, targetEndDate: e.target.value }))} /></FormField>
+        <FormField label="Start Date" required>
+          <Input type="date" value={form.startDate} onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))} />
+        </FormField>
+        <FormField label="Target End Date">
+          <Input type="date" value={form.targetEndDate} onChange={e => setForm(f => ({ ...f, targetEndDate: e.target.value }))} />
+        </FormField>
       </div>
-      <div className="flex justify-end gap-2 mt-4">
+      <div className="flex justify-end gap-2 mt-6">
         <Button variant="secondary" onClick={onClose}>Cancel</Button>
-        <Button onClick={() => { if (form.name && form.pmUserId && form.startDate && form.targetEndDate) { create.mutate({ ...form, description: form.description || undefined, ventureType: form.ventureType || undefined }); setForm({ name: '', description: '', ventureType: '', pmUserId: '', startDate: '', targetEndDate: '' }); } }} disabled={create.isPending}>{create.isPending ? 'Creating...' : 'Create Venture'}</Button>
+        <Button onClick={handleSubmit} disabled={create.isPending || !canSubmit}>
+          {create.isPending ? 'Creating...' : 'Create Venture'}
+        </Button>
       </div>
     </Modal>
   );
