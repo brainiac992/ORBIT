@@ -45,6 +45,18 @@ export type BlockerStatus = (typeof BLOCKER_STATUS)[number];
 export const USER_ROLE = ['gm', 'pmo', 'pm'] as const;
 export type UserRole = (typeof USER_ROLE)[number];
 
+export const DEPENDENCY_NODE_TYPE = ['workstream', 'milestone'] as const;
+export type DependencyNodeType = (typeof DEPENDENCY_NODE_TYPE)[number];
+
+export const DEPENDENCY_TYPE = ['finish_to_start', 'start_to_start', 'finish_to_finish', 'start_to_finish'] as const;
+export type DependencyType = (typeof DEPENDENCY_TYPE)[number];
+
+export const AUDIT_ACTION = ['created', 'updated', 'deleted', 'escalated', 'resolved', 'approved', 'rejected'] as const;
+export type AuditAction = (typeof AUDIT_ACTION)[number];
+
+export const APPROVAL_STATUS = ['pending', 'approved', 'rejected'] as const;
+export type ApprovalStatus = (typeof APPROVAL_STATUS)[number];
+
 export function deriveRag(probability: RiskProbability, impact: RiskImpact): RagRating {
   if (probability === 'high' && impact === 'high') return 'red';
   if (probability === 'high' || impact === 'high') return 'amber';

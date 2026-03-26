@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { trpc } from '../lib/trpc.js';
-import { HealthDot, StatusBadge } from '../components/StatusBadge.js';
+import { HealthDot, StatusBadge, KpiCard, formatAED, SectionHeader } from '../components/StatusBadge.js';
 import { Modal, FormField, Input, TextArea, Select, Button } from '../components/Modal.js';
+import { useExportPortfolio } from '../hooks/useExport.js';
 
 type Tab = 'ventures' | 'escalations' | 'decisions' | 'blockers' | 'resources';
 
@@ -11,9 +12,10 @@ export function PMODashboard() {
   const [showCreateVenture, setShowCreateVenture] = useState(false);
   const { data, isLoading, error } = trpc.dashboard.pmo.useQuery();
   const navigate = useNavigate();
+  const { exportCSV } = useExportPortfolio();
 
-  if (isLoading) return <div className="p-8 text-center text-[var(--text-secondary)]">Loading ventures...</div>;
-  if (error) return <div className="p-8 text-center text-red-600">Unable to load ventures.</div>;
+  if (isLoading) return <div className="p-8 text-[var(--text-3)]">Loading ventures...</div>;
+  if (error) return <div className="p-8 text-red-400">Unable to load ventures.</div>;
   if (!data) return null;
 
   const escalationCount = data.escalations.risks.length + data.escalations.issues.length;
@@ -23,39 +25,51 @@ export function PMODashboard() {
   const tabs: { id: Tab; label: string; badge?: number }[] = [
     { id: 'ventures', label: 'Ventures' },
     { id: 'escalations', label: 'Escalations', badge: escalationCount || undefined },
-    { id: 'decisions', label: 'Decisions Needed', badge: decisionCount || undefined },
+    { id: 'decisions', label: 'Decisions', badge: decisionCount || undefined },
     { id: 'blockers', label: 'Blockers', badge: blockerCount || undefined },
     { id: 'resources', label: 'Resources' },
   ];
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-semibold">Venture Oversight</h2>
-        <Button onClick={() => setShowCreateVenture(true)}>Create Venture</Button>
+    <div className="p-8 max-w-7xl mx-auto">
+      <div className="flex items-center justify-between mb-8">
+        <h2 className="text-2xl font-bold text-[var(--text-0)]">Venture Oversight</h2>
+        <div className="flex gap-2 no-print">
+          <Button variant="ghost" onClick={exportCSV} className="!text-xs">Export Portfolio CSV</Button>
+          <Button onClick={() => setShowCreateVenture(true)}>Create Venture</Button>
+        </div>
+      </div>
+
+      {/* KPI strip */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <KpiCard label="Active Ventures" value={data.ventures.length} />
+        <KpiCard label="Escalations" value={escalationCount} accent={escalationCount > 0 ? 'text-red-400' : 'text-emerald-400'} />
+        <KpiCard label="Decisions Pending" value={decisionCount} accent={decisionCount > 0 ? 'text-amber-400' : 'text-emerald-400'} />
+        <KpiCard label="Open Blockers" value={blockerCount} accent={blockerCount > 0 ? 'text-red-400' : 'text-emerald-400'} />
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-6 border-b border-[var(--border)]">
+      <div className="flex gap-1 mb-6 bg-[var(--surface-0)] rounded-xl p-1 border border-[var(--border)] no-print">
         {tabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => setActiveTab(tab.id)}
-            className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors flex items-center gap-2 ${
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-all flex items-center gap-2 ${
               activeTab === tab.id
-                ? 'border-[var(--accent)] text-[var(--accent)]'
-                : 'border-transparent text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+                ? 'bg-[var(--accent)] text-white shadow-lg shadow-indigo-500/20'
+                : 'text-[var(--text-2)] hover:text-[var(--text-0)] hover:bg-[var(--surface-1)]'
             }`}
           >
             {tab.label}
             {tab.badge && (
-              <span className="bg-red-100 text-red-700 text-xs px-1.5 py-0.5 rounded-full">{tab.badge}</span>
+              <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${
+                activeTab === tab.id ? 'bg-white/20 text-white' : 'bg-red-500/20 text-red-400'
+              }`}>{tab.badge}</span>
             )}
           </button>
         ))}
       </div>
 
-      {/* Tab content */}
       {activeTab === 'ventures' && <VenturesTable ventures={data.ventures} onSelect={id => navigate(`/venture/${id}/plan`)} />}
       {activeTab === 'escalations' && <EscalationsPanel data={data.escalations} />}
       {activeTab === 'decisions' && <DecisionsPanel items={data.openDecisions} />}
@@ -68,57 +82,54 @@ export function PMODashboard() {
 }
 
 function VenturesTable({ ventures, onSelect }: { ventures: any[]; onSelect: (id: string) => void }) {
-  const [sortKey, setSortKey] = useState<string>('name');
-
-  const sorted = [...ventures].sort((a, b) => {
-    if (sortKey === 'name') return a.name.localeCompare(b.name);
-    if (sortKey === 'completionPct') return b.completionPct - a.completionPct;
-    return 0;
-  });
-
   if (ventures.length === 0) {
-    return <p className="text-[var(--text-secondary)]">No ventures created yet. Create your first venture.</p>;
+    return (
+      <div className="text-center py-12">
+        <div className="text-4xl mb-4">🏗</div>
+        <p className="text-[var(--text-3)]">No ventures created yet.</p>
+      </div>
+    );
   }
 
   function daysSince(dateStr: string) {
-    const diff = Date.now() - new Date(dateStr).getTime();
-    return Math.floor(diff / (1000 * 60 * 60 * 24));
+    return Math.floor((Date.now() - new Date(dateStr).getTime()) / (1000 * 60 * 60 * 24));
   }
 
   return (
-    <div className="bg-white rounded-xl border border-[var(--border)] overflow-hidden">
+    <div className="bg-[var(--surface-0)] rounded-2xl border border-[var(--border)] overflow-hidden">
       <table className="w-full text-sm">
         <thead>
-          <tr className="bg-[var(--surface-muted)] text-[var(--text-secondary)] text-xs uppercase tracking-wide">
-            <th className="text-start px-4 py-3 cursor-pointer" onClick={() => setSortKey('name')}>Name</th>
-            <th className="text-start px-4 py-3">PM</th>
-            <th className="text-start px-4 py-3">Health</th>
-            <th className="text-start px-4 py-3 cursor-pointer" onClick={() => setSortKey('completionPct')}>% Complete</th>
-            <th className="text-start px-4 py-3">Last Updated</th>
+          <tr className="bg-[var(--surface-1)] text-[var(--text-3)] text-[10px] uppercase tracking-widest">
+            <th className="text-start px-5 py-3">Name</th>
+            <th className="text-start px-5 py-3">PM</th>
+            <th className="text-start px-5 py-3">Health</th>
+            <th className="text-start px-5 py-3">Progress</th>
+            <th className="text-start px-5 py-3">Last Updated</th>
           </tr>
         </thead>
         <tbody>
-          {sorted.map(v => {
+          {ventures.map((v: any, i: number) => {
             const days = daysSince(v.updatedAt);
             return (
               <tr
                 key={v.id}
                 onClick={() => onSelect(v.id)}
-                className="border-t border-[var(--border)] hover:bg-blue-50 cursor-pointer transition-colors"
+                className="border-t border-[var(--border)] hover:bg-[var(--surface-1)] cursor-pointer transition-colors animate-in"
+                style={{ animationDelay: `${i * 30}ms` }}
               >
-                <td className="px-4 py-3 font-medium">{v.name}</td>
-                <td className="px-4 py-3">{v.pmName}</td>
-                <td className="px-4 py-3"><HealthDot health={v.health} /></td>
-                <td className="px-4 py-3">
-                  <div className="flex items-center gap-2">
-                    <span className="ltr-num">{v.completionPct}%</span>
-                    <div className="w-16 bg-gray-100 rounded-full h-1.5">
+                <td className="px-5 py-3.5 font-medium text-[var(--text-0)]">{v.name}</td>
+                <td className="px-5 py-3.5 text-[var(--text-2)]">{v.pmName}</td>
+                <td className="px-5 py-3.5"><HealthDot health={v.health} size="sm" /></td>
+                <td className="px-5 py-3.5">
+                  <div className="flex items-center gap-3">
+                    <div className="w-20 bg-[var(--surface-2)] rounded-full h-1.5">
                       <div className="h-1.5 rounded-full bg-[var(--accent)]" style={{ width: `${v.completionPct}%` }} />
                     </div>
+                    <span className="text-xs text-[var(--text-2)] ltr-num">{v.completionPct}%</span>
                   </div>
                 </td>
-                <td className="px-4 py-3">
-                  <span className={v.isStale ? 'text-amber-600 font-medium' : ''}>
+                <td className="px-5 py-3.5">
+                  <span className={v.isStale ? 'text-amber-400 font-medium' : 'text-[var(--text-3)]'}>
                     {days === 0 ? 'Today' : `${days}d ago`}
                     {v.isStale && ' ⚠'}
                   </span>
@@ -133,22 +144,17 @@ function VenturesTable({ ventures, onSelect }: { ventures: any[]; onSelect: (id:
 }
 
 function EscalationsPanel({ data }: { data: { risks: any[]; issues: any[] } }) {
-  const all = [
-    ...data.risks.map(r => ({ ...r, type: 'Risk' })),
-    ...data.issues.map(i => ({ ...i, type: 'Issue' })),
-  ];
-
-  if (all.length === 0) return <p className="text-[var(--text-secondary)]">No open escalations across ventures.</p>;
-
+  const all = [...data.risks.map(r => ({ ...r, type: 'Risk' })), ...data.issues.map(i => ({ ...i, type: 'Issue' }))];
+  if (all.length === 0) return <EmptyState icon="✅" text="No open escalations across ventures." />;
   return (
     <div className="space-y-3">
-      {all.map(item => (
-        <div key={item.id} className="bg-white rounded-lg border border-[var(--border)] p-4">
+      {all.map((item, i) => (
+        <div key={item.id} className="bg-[var(--surface-0)] rounded-xl border border-[var(--border)] p-4 animate-in" style={{ animationDelay: `${i * 30}ms` }}>
           <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">{item.type}</span>
-            <span className="font-medium text-sm">{item.title}</span>
+            <span className="text-[10px] bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full font-semibold">{item.type}</span>
+            <span className="text-sm font-medium text-[var(--text-0)]">{item.title}</span>
           </div>
-          <p className="text-xs text-[var(--text-secondary)]">{item.description}</p>
+          {item.description && <p className="text-xs text-[var(--text-3)]">{item.description}</p>}
         </div>
       ))}
     </div>
@@ -158,27 +164,16 @@ function EscalationsPanel({ data }: { data: { risks: any[]; issues: any[] } }) {
 function DecisionsPanel({ items }: { items: any[] }) {
   const utils = trpc.useUtils();
   const resolve = trpc.risks.resolveDecision.useMutation({ onSuccess: () => utils.dashboard.pmo.invalidate() });
-
-  if (items.length === 0) return <p className="text-[var(--text-secondary)]">No open decisions across ventures.</p>;
-
+  if (items.length === 0) return <EmptyState icon="✅" text="No open decisions across ventures." />;
   return (
     <div className="space-y-3">
-      {items.map(d => (
-        <div key={d.id} className="bg-white rounded-lg border border-[var(--border)] p-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-2 mb-1">
-                <StatusBadge status="open" />
-                <span className="text-sm font-medium">{d.description}</span>
-              </div>
-              <p className="text-xs text-[var(--text-secondary)]">
-                Logged: {new Date(d.createdAt ?? Date.now()).toLocaleDateString()}
-              </p>
-            </div>
-            <Button variant="secondary" onClick={() => resolve.mutate({ id: d.id })} disabled={resolve.isPending}>
-              Resolve
-            </Button>
+      {items.map((d: any, i: number) => (
+        <div key={d.id} className="bg-[var(--surface-0)] rounded-xl border border-[var(--border)] p-4 flex items-center justify-between animate-in" style={{ animationDelay: `${i * 30}ms` }}>
+          <div>
+            <span className="text-sm font-medium text-[var(--text-0)]">{d.description}</span>
+            <p className="text-xs text-[var(--text-3)] mt-0.5">Logged {new Date(d.createdAt ?? Date.now()).toLocaleDateString()}</p>
           </div>
+          <Button variant="secondary" onClick={() => resolve.mutate({ id: d.id })}>Resolve</Button>
         </div>
       ))}
     </div>
@@ -188,27 +183,16 @@ function DecisionsPanel({ items }: { items: any[] }) {
 function BlockersPanel({ items }: { items: any[] }) {
   const utils = trpc.useUtils();
   const resolve = trpc.risks.resolveBlocker.useMutation({ onSuccess: () => utils.dashboard.pmo.invalidate() });
-
-  if (items.length === 0) return <p className="text-[var(--text-secondary)]">No open blockers across ventures.</p>;
-
+  if (items.length === 0) return <EmptyState icon="✅" text="No open blockers across ventures." />;
   return (
     <div className="space-y-3">
-      {items.map(b => (
-        <div key={b.id} className="bg-white rounded-lg border border-[var(--border)] p-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-start gap-2">
-              <span className="text-amber-500 mt-0.5">●</span>
-              <div>
-                <span className="text-sm font-medium">{b.description}</span>
-                <p className="text-xs text-[var(--text-secondary)]">
-                  Logged: {new Date(b.createdAt ?? Date.now()).toLocaleDateString()}
-                </p>
-              </div>
-            </div>
-            <Button variant="secondary" onClick={() => resolve.mutate({ id: b.id })} disabled={resolve.isPending}>
-              Resolve
-            </Button>
+      {items.map((b: any, i: number) => (
+        <div key={b.id} className="bg-[var(--surface-0)] rounded-xl border border-[var(--border)] p-4 flex items-center justify-between animate-in" style={{ animationDelay: `${i * 30}ms` }}>
+          <div className="flex items-start gap-2">
+            <span className="text-amber-400 mt-0.5">●</span>
+            <span className="text-sm text-[var(--text-1)]">{b.description}</span>
           </div>
+          <Button variant="secondary" onClick={() => resolve.mutate({ id: b.id })}>Resolve</Button>
         </div>
       ))}
     </div>
@@ -217,32 +201,39 @@ function BlockersPanel({ items }: { items: any[] }) {
 
 function ResourcesPanel() {
   const { data, isLoading } = trpc.resources.allocationSummary.useQuery();
-
-  if (isLoading) return <div className="text-[var(--text-secondary)]">Loading resources...</div>;
-  if (!data || data.length === 0) return <p className="text-[var(--text-secondary)]">No resources in directory.</p>;
+  if (isLoading) return <div className="text-[var(--text-3)]">Loading resources...</div>;
+  if (!data || data.length === 0) return <EmptyState icon="👥" text="No resources in directory." />;
 
   return (
-    <div className="bg-white rounded-xl border border-[var(--border)] overflow-hidden">
+    <div className="bg-[var(--surface-0)] rounded-2xl border border-[var(--border)] overflow-hidden">
       <table className="w-full text-sm">
         <thead>
-          <tr className="bg-[var(--surface-muted)] text-[var(--text-secondary)] text-xs uppercase tracking-wide">
-            <th className="text-start px-4 py-3">Name</th>
-            <th className="text-start px-4 py-3">Type</th>
-            <th className="text-start px-4 py-3">Role</th>
-            <th className="text-start px-4 py-3">Total HpW</th>
+          <tr className="bg-[var(--surface-1)] text-[var(--text-3)] text-[10px] uppercase tracking-widest">
+            <th className="text-start px-5 py-3">Name</th>
+            <th className="text-start px-5 py-3">Type</th>
+            <th className="text-start px-5 py-3">Role</th>
+            <th className="text-start px-5 py-3">Allocated</th>
           </tr>
         </thead>
         <tbody>
-          {data.map(r => (
+          {data.map((r: any) => (
             <tr key={r.id} className="border-t border-[var(--border)]">
-              <td className="px-4 py-3 font-medium">{r.name}</td>
-              <td className="px-4 py-3"><StatusBadge status={r.type} /></td>
-              <td className="px-4 py-3">{r.roleTitle}</td>
-              <td className="px-4 py-3">
-                <span className={`ltr-num ${r.overAllocated ? 'text-red-600 font-semibold' : ''}`}>
-                  {r.totalHoursPerWeek}h
-                  {r.overAllocated && <span className="ms-2 text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full">Over-allocated</span>}
-                </span>
+              <td className="px-5 py-3 font-medium text-[var(--text-0)]">{r.name}</td>
+              <td className="px-5 py-3"><StatusBadge status={r.type} size="xs" /></td>
+              <td className="px-5 py-3 text-[var(--text-2)]">{r.roleTitle}</td>
+              <td className="px-5 py-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-16 bg-[var(--surface-2)] rounded-full h-2">
+                    <div
+                      className={`h-2 rounded-full transition-all ${r.overAllocated ? 'bg-red-500' : 'bg-[var(--accent)]'}`}
+                      style={{ width: `${Math.min(100, (r.totalHoursPerWeek / 40) * 100)}%` }}
+                    />
+                  </div>
+                  <span className={`text-xs ltr-num font-medium ${r.overAllocated ? 'text-red-400' : 'text-[var(--text-2)]'}`}>
+                    {r.totalHoursPerWeek}h
+                  </span>
+                  {r.overAllocated && <span className="text-[10px] bg-red-500/20 text-red-400 px-1.5 py-0.5 rounded-full">Over</span>}
+                </div>
               </td>
             </tr>
           ))}
@@ -252,46 +243,33 @@ function ResourcesPanel() {
   );
 }
 
+function EmptyState({ icon, text }: { icon: string; text: string }) {
+  return (
+    <div className="text-center py-12">
+      <div className="text-4xl mb-4">{icon}</div>
+      <p className="text-sm text-[var(--text-3)]">{text}</p>
+    </div>
+  );
+}
+
 function CreateVentureForm({ open, onClose }: { open: boolean; onClose: () => void }) {
   const utils = trpc.useUtils();
-  const create = trpc.ventures.create.useMutation({
-    onSuccess: () => { utils.dashboard.pmo.invalidate(); onClose(); },
-  });
+  const create = trpc.ventures.create.useMutation({ onSuccess: () => { utils.dashboard.pmo.invalidate(); onClose(); } });
   const [form, setForm] = useState({ name: '', description: '', ventureType: '', pmUserId: '', startDate: '', targetEndDate: '' });
-
-  const handleSubmit = () => {
-    if (!form.name.trim() || !form.pmUserId || !form.startDate || !form.targetEndDate) return;
-    create.mutate({ ...form, description: form.description || undefined, ventureType: form.ventureType || undefined });
-    setForm({ name: '', description: '', ventureType: '', pmUserId: '', startDate: '', targetEndDate: '' });
-  };
 
   return (
     <Modal open={open} onClose={onClose} title="Create Venture">
-      <FormField label="Venture Name" required>
-        <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. DARI.AE" />
-      </FormField>
-      <FormField label="Description">
-        <TextArea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={2} placeholder="Brief description" />
-      </FormField>
-      <FormField label="Venture Type">
-        <Input value={form.ventureType} onChange={e => setForm(f => ({ ...f, ventureType: e.target.value }))} placeholder="e.g. Technology Platform" />
-      </FormField>
-      <FormField label="Assigned PM (User ID)" required>
-        <Input value={form.pmUserId} onChange={e => setForm(f => ({ ...f, pmUserId: e.target.value }))} placeholder="PM user UUID" />
-      </FormField>
+      <FormField label="Venture Name" required><Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. DARI.AE" /></FormField>
+      <FormField label="Description"><TextArea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={2} placeholder="Brief description" /></FormField>
+      <FormField label="Venture Type"><Input value={form.ventureType} onChange={e => setForm(f => ({ ...f, ventureType: e.target.value }))} placeholder="e.g. Technology Platform" /></FormField>
+      <FormField label="Assigned PM (User ID)" required><Input value={form.pmUserId} onChange={e => setForm(f => ({ ...f, pmUserId: e.target.value }))} placeholder="PM user UUID" /></FormField>
       <div className="grid grid-cols-2 gap-4">
-        <FormField label="Start Date" required>
-          <Input type="date" value={form.startDate} onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))} />
-        </FormField>
-        <FormField label="Target End Date" required>
-          <Input type="date" value={form.targetEndDate} onChange={e => setForm(f => ({ ...f, targetEndDate: e.target.value }))} />
-        </FormField>
+        <FormField label="Start Date" required><Input type="date" value={form.startDate} onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))} /></FormField>
+        <FormField label="Target End Date" required><Input type="date" value={form.targetEndDate} onChange={e => setForm(f => ({ ...f, targetEndDate: e.target.value }))} /></FormField>
       </div>
       <div className="flex justify-end gap-2 mt-4">
         <Button variant="secondary" onClick={onClose}>Cancel</Button>
-        <Button onClick={handleSubmit} disabled={create.isPending || !form.name.trim() || !form.pmUserId || !form.startDate || !form.targetEndDate}>
-          {create.isPending ? 'Creating...' : 'Create Venture'}
-        </Button>
+        <Button onClick={() => { if (form.name && form.pmUserId && form.startDate && form.targetEndDate) { create.mutate({ ...form, description: form.description || undefined, ventureType: form.ventureType || undefined }); setForm({ name: '', description: '', ventureType: '', pmUserId: '', startDate: '', targetEndDate: '' }); } }} disabled={create.isPending}>{create.isPending ? 'Creating...' : 'Create Venture'}</Button>
       </div>
     </Modal>
   );

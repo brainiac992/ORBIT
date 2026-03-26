@@ -4,6 +4,7 @@ import { ventures, users } from '../db/schema.js';
 import { eq, and, ne, sql } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { VENTURE_STATUS, HEALTH_STATUS } from '../../shared/enums.js';
+import { logAudit, logAuditDiff } from '../services/audit.js';
 
 export const venturesRouter = router({
   list: protectedProcedure.query(async ({ ctx }) => {
@@ -58,6 +59,15 @@ export const venturesRouter = router({
         completionPct: 0,
         createdBy: ctx.user.id,
       }).returning();
+
+      await logAudit(ctx.db, {
+        entityType: 'venture',
+        entityId: venture.id,
+        ventureId: venture.id,
+        action: 'created',
+        changedBy: ctx.user.id,
+      });
+
       return venture;
     }),
 
@@ -90,6 +100,12 @@ export const venturesRouter = router({
           .set({ ...pmAllowed, updatedAt: new Date() })
           .where(eq(ventures.id, id))
           .returning();
+
+        await logAuditDiff(ctx.db, {
+          entityType: 'venture', entityId: id, ventureId: id, changedBy: ctx.user.id,
+          before: venture, after: pmAllowed,
+        });
+
         return updated;
       }
 
@@ -98,6 +114,12 @@ export const venturesRouter = router({
         .set({ ...updates, updatedAt: new Date() })
         .where(eq(ventures.id, id))
         .returning();
+
+      await logAuditDiff(ctx.db, {
+        entityType: 'venture', entityId: id, ventureId: id, changedBy: ctx.user.id,
+        before: venture, after: updates,
+      });
+
       return updated;
     }),
 
@@ -105,11 +127,21 @@ export const venturesRouter = router({
     .use(requireRole('pmo'))
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
+      const [existing] = await ctx.db.select().from(ventures).where(eq(ventures.id, input.id)).limit(1);
+      if (!existing) throw new TRPCError({ code: 'NOT_FOUND', message: 'Venture not found' });
+
       const [updated] = await ctx.db.update(ventures)
         .set({ status: 'archived', updatedAt: new Date() })
         .where(eq(ventures.id, input.id))
         .returning();
-      if (!updated) throw new TRPCError({ code: 'NOT_FOUND', message: 'Venture not found' });
+
+      await logAudit(ctx.db, {
+        entityType: 'venture', entityId: input.id, ventureId: input.id,
+        action: 'updated', fieldName: 'status',
+        oldValue: existing.status, newValue: 'archived',
+        changedBy: ctx.user.id,
+      });
+
       return updated;
     }),
 

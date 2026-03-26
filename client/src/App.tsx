@@ -9,11 +9,14 @@ import { GMDashboard } from './pages/GMDashboard.js';
 import { PMODashboard } from './pages/PMODashboard.js';
 import { PMDashboard } from './pages/PMDashboard.js';
 import { ProjectPlanPage } from './pages/ProjectPlan.js';
+import { GanttPage } from './pages/GanttPage.js';
 import { BudgetPage } from './pages/BudgetPage.js';
 import { ProgressPage } from './pages/ProgressPage.js';
 import { RisksPage } from './pages/RisksPage.js';
 import { ResourcesPage } from './pages/ResourcesPage.js';
 import { WeeklyUpdatePage } from './pages/WeeklyUpdate.js';
+import { ActivityPage } from './pages/ActivityPage.js';
+import { ApprovalsPage } from './pages/ApprovalsPage.js';
 
 const roleHome: Record<string, string> = {
   gm: '/dashboard/gm',
@@ -24,7 +27,7 @@ const roleHome: Record<string, string> = {
 function AppInner() {
   const { user, isLoading } = useAuth();
 
-  if (isLoading) return <div className="min-h-screen flex items-center justify-center text-[var(--text-secondary)]">Loading...</div>;
+  if (isLoading) return <div className="min-h-screen flex items-center justify-center text-[var(--text-3)]">Loading...</div>;
 
   return (
     <Routes>
@@ -34,11 +37,14 @@ function AppInner() {
         <Route path="/dashboard/pmo" element={user?.role === 'pmo' ? <PMODashboard /> : <RoleRedirect />} />
         <Route path="/dashboard/pm" element={user?.role === 'pm' ? <PMDashboard /> : <RoleRedirect />} />
         <Route path="/venture/:ventureId/plan" element={<ProjectPlanPage />} />
+        <Route path="/venture/:ventureId/gantt" element={<GanttPage />} />
         <Route path="/venture/:ventureId/budget" element={<BudgetPage />} />
         <Route path="/venture/:ventureId/progress" element={<ProgressPage />} />
         <Route path="/venture/:ventureId/risks" element={<RisksPage />} />
         <Route path="/venture/:ventureId/resources" element={<ResourcesPage />} />
         <Route path="/venture/:ventureId/update" element={<WeeklyUpdatePage />} />
+        <Route path="/activity" element={<ActivityPage />} />
+        <Route path="/approvals" element={<ApprovalsPage />} />
       </Route>
       <Route path="*" element={<Navigate to={user ? roleHome[user.role] : '/login'} />} />
     </Routes>
@@ -65,7 +71,6 @@ export default function App() {
 function TrpcWrapper({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
 
-  // Recreate client when user changes — fixes stale auth after login/switch
   const queryClient = useMemo(() => new QueryClient({
     defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } },
   }), [user?.azureOid]);

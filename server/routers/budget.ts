@@ -5,6 +5,7 @@ import { eq, desc } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { BUDGET_CATEGORY, BUDGET_ENTRY_TYPE } from '../../shared/enums.js';
 import type { BudgetStatus } from '../../shared/enums.js';
+import { logAudit } from '../services/audit.js';
 
 function deriveBudgetStatus(approved: number, forecastAtCompletion: number): BudgetStatus {
   if (approved <= 0) return 'within_budget';
@@ -35,6 +36,14 @@ export const budgetRouter = router({
         updatedAt: new Date(),
       }).where(eq(ventures.id, input.ventureId)).returning();
 
+      await logAudit(ctx.db, {
+        entityType: 'budget_entry', entityId: input.ventureId, ventureId: input.ventureId,
+        action: 'approved', fieldName: 'approved_budget',
+        oldValue: venture.approvedBudget ? String(venture.approvedBudget) : null,
+        newValue: input.amount,
+        changedBy: ctx.user.id,
+      });
+
       return updated;
     }),
 
@@ -63,6 +72,12 @@ export const budgetRouter = router({
         ...input,
         createdBy: ctx.user.id,
       }).returning();
+
+      await logAudit(ctx.db, {
+        entityType: 'budget_entry', entityId: entry.id, ventureId: input.ventureId,
+        action: 'created', fieldName: 'amount', newValue: input.amount,
+        changedBy: ctx.user.id,
+      });
 
       return entry;
     }),

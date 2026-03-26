@@ -28,6 +28,10 @@ export const ragRatingEnum = pgEnum('rag_rating', ['green', 'amber', 'red']);
 export const riskStatusEnum = pgEnum('risk_status', ['open', 'mitigated', 'closed']);
 export const issueStatusEnum = pgEnum('issue_status', ['open', 'in_progress', 'resolved']);
 export const blockerStatusEnum = pgEnum('blocker_status', ['open', 'resolved']);
+export const dependencyNodeTypeEnum = pgEnum('dependency_node_type', ['workstream', 'milestone']);
+export const dependencyTypeEnum = pgEnum('dependency_type', ['finish_to_start', 'start_to_start', 'finish_to_finish', 'start_to_finish']);
+export const auditActionEnum = pgEnum('audit_action', ['created', 'updated', 'deleted', 'escalated', 'resolved', 'approved', 'rejected']);
+export const approvalStatusEnum = pgEnum('approval_status', ['pending', 'approved', 'rejected']);
 
 // ── Users ──────────────────────────────────────────────────
 
@@ -266,4 +270,59 @@ export const issues = pgTable('issues', {
 }, (table) => [
   index('issues_venture_id_idx').on(table.ventureId),
   index('issues_escalated_idx').on(table.escalated),
+]);
+
+// ── Task Dependencies ─────────────────────────────────────
+
+export const taskDependencies = pgTable('task_dependencies', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  ventureId: uuid('venture_id').references(() => ventures.id).notNull(),
+  sourceType: dependencyNodeTypeEnum('source_type').notNull(),
+  sourceId: uuid('source_id').notNull(),
+  targetType: dependencyNodeTypeEnum('target_type').notNull(),
+  targetId: uuid('target_id').notNull(),
+  dependencyType: dependencyTypeEnum('dependency_type').default('finish_to_start').notNull(),
+  lagDays: integer('lag_days').default(0).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index('task_deps_venture_id_idx').on(table.ventureId),
+  index('task_deps_source_idx').on(table.sourceType, table.sourceId),
+  index('task_deps_target_idx').on(table.targetType, table.targetId),
+]);
+
+// ── Audit Trail ───────────────────────────────────────────
+
+export const auditTrail = pgTable('audit_trail', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  entityType: varchar('entity_type', { length: 50 }).notNull(),
+  entityId: uuid('entity_id').notNull(),
+  ventureId: uuid('venture_id').references(() => ventures.id),
+  action: auditActionEnum('action').notNull(),
+  fieldName: varchar('field_name', { length: 100 }),
+  oldValue: text('old_value'),
+  newValue: text('new_value'),
+  changedBy: uuid('changed_by').references(() => users.id).notNull(),
+  changedAt: timestamp('changed_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index('audit_entity_idx').on(table.entityType, table.entityId),
+  index('audit_venture_id_idx').on(table.ventureId),
+  index('audit_changed_at_idx').on(table.changedAt),
+]);
+
+// ── Approvals ─────────────────────────────────────────────
+
+export const approvals = pgTable('approvals', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  entityType: varchar('entity_type', { length: 50 }).notNull(),
+  entityId: uuid('entity_id').notNull(),
+  ventureId: uuid('venture_id').references(() => ventures.id).notNull(),
+  status: approvalStatusEnum('status').default('pending').notNull(),
+  requestedBy: uuid('requested_by').references(() => users.id).notNull(),
+  decidedBy: uuid('decided_by').references(() => users.id),
+  decidedAt: timestamp('decided_at', { withTimezone: true }),
+  notes: text('notes'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index('approvals_venture_id_idx').on(table.ventureId),
+  index('approvals_status_idx').on(table.status),
 ]);

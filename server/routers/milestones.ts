@@ -4,6 +4,7 @@ import { milestones, workstreams, ventures } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { MILESTONE_STATUS } from '../../shared/enums.js';
+import { logAuditDiff } from '../services/audit.js';
 
 function applyOverdueLogic(milestone: typeof milestones.$inferSelect): typeof milestones.$inferSelect {
   const today = new Date().toISOString().split('T')[0];
@@ -95,6 +96,12 @@ export const milestonesRouter = router({
         .set({ ...updates, updatedAt: new Date() })
         .where(eq(milestones.id, id))
         .returning();
+
+      await logAuditDiff(ctx.db, {
+        entityType: 'milestone', entityId: id, ventureId: venture?.id, changedBy: ctx.user.id,
+        before: ms, after: updates,
+      });
+
       return updated;
     }),
 });

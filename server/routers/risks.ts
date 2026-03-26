@@ -5,6 +5,7 @@ import { eq, and } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { RISK_PROBABILITY, RISK_IMPACT, RAG_RATING, RISK_STATUS, ISSUE_STATUS } from '../../shared/enums.js';
 import { deriveRag } from '../../shared/enums.js';
+import { logAudit, logAuditDiff } from '../services/audit.js';
 
 async function assertVentureReadAccess(ctx: any, ventureId: string) {
   const [venture] = await ctx.db.select().from(ventures).where(eq(ventures.id, ventureId)).limit(1);
@@ -47,6 +48,12 @@ export const risksRouter = router({
         ragOverride: !!input.rag,
         createdBy: ctx.user.id,
       }).returning();
+
+      await logAudit(ctx.db, {
+        entityType: 'risk', entityId: risk.id, ventureId: input.ventureId,
+        action: 'created', changedBy: ctx.user.id,
+      });
+
       return risk;
     }),
 
@@ -82,6 +89,26 @@ export const risksRouter = router({
         .set({ ...updates, rag, ragOverride, updatedAt: new Date() })
         .where(eq(risks.id, id))
         .returning();
+
+      if (updates.escalated === true && !risk.escalated) {
+        await logAudit(ctx.db, {
+          entityType: 'risk', entityId: id, ventureId: risk.ventureId,
+          action: 'escalated', changedBy: ctx.user.id,
+        });
+      } else if (updates.status === 'closed' || updates.status === 'mitigated') {
+        await logAudit(ctx.db, {
+          entityType: 'risk', entityId: id, ventureId: risk.ventureId,
+          action: 'resolved', fieldName: 'status',
+          oldValue: risk.status, newValue: updates.status,
+          changedBy: ctx.user.id,
+        });
+      } else {
+        await logAuditDiff(ctx.db, {
+          entityType: 'risk', entityId: id, ventureId: risk.ventureId, changedBy: ctx.user.id,
+          before: risk, after: updates,
+        });
+      }
+
       return updated;
     }),
 
@@ -112,6 +139,12 @@ export const risksRouter = router({
         ...input,
         createdBy: ctx.user.id,
       }).returning();
+
+      await logAudit(ctx.db, {
+        entityType: 'issue', entityId: issue.id, ventureId: input.ventureId,
+        action: 'created', changedBy: ctx.user.id,
+      });
+
       return issue;
     }),
 
@@ -134,6 +167,21 @@ export const risksRouter = router({
         .set({ ...updates, updatedAt: new Date() })
         .where(eq(issues.id, id))
         .returning();
+
+      if (updates.status === 'resolved') {
+        await logAudit(ctx.db, {
+          entityType: 'issue', entityId: id, ventureId: issue.ventureId,
+          action: 'resolved', fieldName: 'status',
+          oldValue: issue.status, newValue: 'resolved',
+          changedBy: ctx.user.id,
+        });
+      } else {
+        await logAuditDiff(ctx.db, {
+          entityType: 'issue', entityId: id, ventureId: issue.ventureId, changedBy: ctx.user.id,
+          before: issue, after: updates,
+        });
+      }
+
       return updated;
     }),
 

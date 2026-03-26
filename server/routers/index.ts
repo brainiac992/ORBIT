@@ -7,6 +7,11 @@ import { progressRouter } from './progress.js';
 import { budgetRouter } from './budget.js';
 import { risksRouter } from './risks.js';
 import { dashboardRouter } from './dashboard.js';
+import { dependenciesRouter } from './dependencies.js';
+import { auditRouter } from './audit.js';
+import { approvalsRouter } from './approvals.js';
+import { exportRouter } from './export.js';
+import { ganttRouter } from './gantt.js';
 
 export const appRouter = router({
   ventures: venturesRouter,
@@ -17,6 +22,11 @@ export const appRouter = router({
   budget: budgetRouter,
   risks: risksRouter,
   dashboard: dashboardRouter,
+  dependencies: dependenciesRouter,
+  audit: auditRouter,
+  approvals: approvalsRouter,
+  export: exportRouter,
+  gantt: ganttRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -4,6 +4,7 @@ import { workstreams, ventures } from '../db/schema.js';
 import { eq } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { WORKSTREAM_STATUS } from '../../shared/enums.js';
+import { logAudit, logAuditDiff } from '../services/audit.js';
 
 async function assertVentureAccess(ctx: any, ventureId: string) {
   const [venture] = await ctx.db.select().from(ventures).where(eq(ventures.id, ventureId)).limit(1);
@@ -50,6 +51,12 @@ export const workstreamsRouter = router({
         status: 'not_started',
         completionPct: 0,
       }).returning();
+
+      await logAudit(ctx.db, {
+        entityType: 'workstream', entityId: ws.id, ventureId: input.ventureId,
+        action: 'created', changedBy: ctx.user.id,
+      });
+
       return ws;
     }),
 
@@ -77,6 +84,12 @@ export const workstreamsRouter = router({
         .set({ ...updates, updatedAt: new Date() })
         .where(eq(workstreams.id, id))
         .returning();
+
+      await logAuditDiff(ctx.db, {
+        entityType: 'workstream', entityId: id, ventureId: ws.ventureId, changedBy: ctx.user.id,
+        before: ws, after: updates,
+      });
+
       return updated;
     }),
 });

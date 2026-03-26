@@ -1,65 +1,70 @@
 import { useState } from 'react';
 import { trpc } from '../lib/trpc.js';
-import { HealthDot, StatusBadge, formatAED } from '../components/StatusBadge.js';
+import { HealthDot, StatusBadge, ProgressRing, KpiCard, formatAED, SectionHeader } from '../components/StatusBadge.js';
+import { Button } from '../components/Modal.js';
 
 export function GMDashboard() {
   const { data, isLoading, error } = trpc.dashboard.gm.useQuery();
-  const [selectedVentureId, setSelectedVentureId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  if (isLoading) return <div className="p-8 text-center text-[var(--text-secondary)]">Loading portfolio...</div>;
-  if (error) return <div className="p-8 text-center text-red-600">Unable to load portfolio data. Please try again.</div>;
+  if (isLoading) return <Loading />;
+  if (error) return <div className="p-8 text-center text-red-400">Unable to load portfolio data.</div>;
   if (!data || data.ventures.length === 0) {
-    return <div className="p-8 text-center text-[var(--text-secondary)]">No active ventures</div>;
+    return (
+      <div className="p-12 text-center">
+        <div className="text-4xl mb-4">🏗</div>
+        <h2 className="text-lg font-semibold text-[var(--text-0)] mb-2">No Active Ventures</h2>
+        <p className="text-sm text-[var(--text-3)]">Ventures will appear here once created by PMO.</p>
+      </div>
+    );
   }
 
   const { summary, ventures } = data;
-  const selectedVenture = ventures.find(v => v.id === selectedVentureId);
+  const selected = ventures.find(v => v.id === selectedId);
 
   return (
-    <div className="p-6 max-w-6xl mx-auto">
-      <h2 className="text-xl font-semibold mb-6">Portfolio Health</h2>
+    <div className="p-8 max-w-6xl mx-auto">
+      <h2 className="text-2xl font-bold text-[var(--text-0)] mb-8">Portfolio Health</h2>
 
-      {/* Summary bar */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-8">
-        <SummaryTile label="Active Ventures" value={summary.totalActive} />
-        <SummaryTile label="On Track" value={summary.onTrack} color="text-green-600" />
-        <SummaryTile label="At Risk" value={summary.atRisk} color="text-amber-600" />
-        <SummaryTile label="Off Track" value={summary.offTrack} color="text-red-600" />
-        <div className="bg-white rounded-xl border border-[var(--border)] p-4">
-          <div className="text-xs text-[var(--text-secondary)] mb-1">Portfolio Budget</div>
-          <div className="text-sm font-medium ltr-num">{formatAED(summary.totalApprovedBudget)}</div>
-          <div className="text-xs text-[var(--text-secondary)] ltr-num">Forecast: {formatAED(summary.totalForecast)}</div>
-        </div>
+      {/* KPI strip */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-10">
+        <KpiCard label="Active" value={summary.totalActive} />
+        <KpiCard label="On Track" value={summary.onTrack} accent="text-emerald-400" />
+        <KpiCard label="At Risk" value={summary.atRisk} accent="text-amber-400" />
+        <KpiCard label="Off Track" value={summary.offTrack} accent="text-red-400" />
+        <KpiCard label="Budget" value={formatAED(summary.totalApprovedBudget)} sub={`Forecast: ${formatAED(summary.totalForecast)}`} />
       </div>
 
       {/* Venture cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        {ventures.map(v => (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+        {ventures.map((v, i) => (
           <button
             key={v.id}
-            onClick={() => setSelectedVentureId(v.id === selectedVentureId ? null : v.id)}
-            className={`text-start w-full bg-white rounded-xl border p-5 transition-all hover:shadow-sm ${
-              v.id === selectedVentureId ? 'border-[var(--accent)] ring-1 ring-[var(--accent)]' : 'border-[var(--border)]'
+            onClick={() => setSelectedId(v.id === selectedId ? null : v.id)}
+            className={`group text-start rounded-2xl border p-6 transition-all animate-in hover:shadow-lg hover:shadow-black/20 ${
+              v.id === selectedId
+                ? 'border-[var(--accent)] bg-[var(--accent-dim)]'
+                : 'border-[var(--border)] bg-[var(--surface-0)] hover:border-[var(--border-hover)]'
             }`}
+            style={{ animationDelay: `${i * 60}ms` }}
           >
-            <div className="flex items-start justify-between mb-3">
+            <div className="flex items-start justify-between mb-4">
               <div>
-                <div className="font-medium">{v.name}</div>
-                <div className="text-sm text-[var(--text-secondary)]">{v.pmName}</div>
+                <div className="text-base font-semibold text-[var(--text-0)]">{v.name}</div>
+                <div className="text-xs text-[var(--text-3)] mt-0.5">{v.pmName}</div>
               </div>
-              <HealthDot health={v.health} />
+              <ProgressRing value={v.completionPct} size={48} stroke={4} />
             </div>
-            <div className="flex items-center gap-4 text-sm">
-              <span className="ltr-num">{v.completionPct}%</span>
-              <div className="flex-1 bg-gray-100 rounded-full h-2">
-                <div
-                  className="h-2 rounded-full bg-[var(--accent)]"
-                  style={{ width: `${v.completionPct}%` }}
-                />
-              </div>
-              <StatusBadge status={v.budgetStatus} />
+
+            <div className="flex items-center gap-3 mb-3">
+              <HealthDot health={v.health} size="sm" />
+              <span className="text-xs text-[var(--text-3)] ltr-num">{v.completionPct}%</span>
+            </div>
+
+            <div className="flex items-center justify-between text-xs">
+              <StatusBadge status={v.budgetStatus} size="xs" />
               {v.escalationCount > 0 && (
-                <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-medium">
+                <span className="bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full font-medium pulse-warn">
                   {v.escalationCount} escalation{v.escalationCount > 1 ? 's' : ''}
                 </span>
               )}
@@ -68,81 +73,100 @@ export function GMDashboard() {
         ))}
       </div>
 
-      {/* Venture detail drawer */}
-      {selectedVenture && (
-        <VentureDrawer ventureId={selectedVenture.id} name={selectedVenture.name} onClose={() => setSelectedVentureId(null)} />
-      )}
+      {/* Drawer */}
+      {selected && <VentureDrawer venture={selected} onClose={() => setSelectedId(null)} />}
     </div>
   );
 }
 
-function VentureDrawer({ ventureId, name, onClose }: { ventureId: string; name: string; onClose: () => void }) {
-  const { data: latest } = trpc.progress.latest.useQuery({ ventureId });
-  const { data: budgetSummary } = trpc.budget.summary.useQuery({ ventureId });
-  const { data: risks } = trpc.risks.listRisks.useQuery({ ventureId });
+function VentureDrawer({ venture, onClose }: { venture: any; onClose: () => void }) {
+  const { data: latest } = trpc.progress.latest.useQuery({ ventureId: venture.id });
+  const { data: budget } = trpc.budget.summary.useQuery({ ventureId: venture.id });
+  const { data: risks } = trpc.risks.listRisks.useQuery({ ventureId: venture.id });
 
-  const openRisks = risks?.filter(r => r.status === 'open').length ?? 0;
-  const escalations = risks?.filter(r => r.escalated).length ?? 0;
+  const openRisks = risks?.filter((r: any) => r.status === 'open').length ?? 0;
+  const escalations = risks?.filter((r: any) => r.escalated).length ?? 0;
 
   return (
-    <div className="fixed inset-y-0 end-0 w-full max-w-md bg-white shadow-lg border-s border-[var(--border)] z-50 overflow-y-auto">
+    <div className="fixed inset-y-0 end-0 w-full max-w-md bg-[var(--surface-0)] border-s border-[var(--border)] z-50 overflow-y-auto shadow-2xl animate-slide">
       <div className="p-6">
         <div className="flex items-center justify-between mb-6">
-          <h3 className="text-lg font-semibold">{name}</h3>
-          <button onClick={onClose} className="text-[var(--text-secondary)] hover:text-[var(--text-primary)] text-xl">&times;</button>
+          <div>
+            <h3 className="text-lg font-bold text-[var(--text-0)]">{venture.name}</h3>
+            <div className="text-xs text-[var(--text-3)] mt-0.5">{venture.pmName}</div>
+          </div>
+          <button onClick={onClose} className="w-8 h-8 rounded-xl bg-[var(--surface-1)] flex items-center justify-center text-[var(--text-3)] hover:text-[var(--text-0)] transition-colors">&times;</button>
         </div>
 
-        {/* Latest update */}
-        <Section title="Latest Update">
+        {/* Health + Progress */}
+        <div className="flex items-center gap-6 mb-6 p-4 rounded-xl bg-[var(--surface-1)]">
+          <ProgressRing value={venture.completionPct} size={72} stroke={5} />
+          <div>
+            <div className="text-2xl font-bold text-[var(--text-0)] ltr-num">{venture.completionPct}%</div>
+            <HealthDot health={venture.health} size="sm" />
+          </div>
+        </div>
+
+        <DrawerSection title="Latest Update">
           {latest ? (
             <>
-              <div className="text-xs text-[var(--text-secondary)] mb-1">{latest.weekLabel}</div>
-              <p className="text-sm">{latest.narrative}</p>
+              <div className="text-[10px] text-[var(--text-3)] uppercase tracking-wider mb-1">{latest.weekLabel}</div>
+              <p className="text-sm text-[var(--text-1)]">{latest.narrative}</p>
             </>
           ) : (
-            <p className="text-sm text-[var(--text-secondary)]">No updates submitted yet.</p>
+            <p className="text-sm text-[var(--text-3)]">No updates yet.</p>
           )}
-        </Section>
+        </DrawerSection>
 
-        {/* Budget */}
-        <Section title="Budget">
-          {budgetSummary ? (
-            <div className="space-y-1 text-sm">
-              <div className="flex justify-between"><span>Approved</span><span className="ltr-num">{formatAED(budgetSummary.approvedBudget)}</span></div>
-              <div className="flex justify-between"><span>Forecast</span><span className="ltr-num">{formatAED(budgetSummary.forecastAtCompletion)}</span></div>
-              <div className="flex justify-between items-center"><span>Status</span><StatusBadge status={budgetSummary.budgetStatus} /></div>
+        <DrawerSection title="Budget">
+          {budget ? (
+            <div className="space-y-2 text-sm">
+              <Row label="Approved" value={formatAED(budget.approvedBudget)} />
+              <Row label="Forecast" value={formatAED(budget.forecastAtCompletion)} />
+              <Row label="Status" value={<StatusBadge status={budget.budgetStatus} size="xs" />} />
             </div>
-          ) : (
-            <p className="text-sm text-[var(--text-secondary)]">Loading...</p>
-          )}
-        </Section>
+          ) : <p className="text-sm text-[var(--text-3)]">Loading...</p>}
+        </DrawerSection>
 
-        {/* Risks */}
-        <Section title="Risks">
-          <div className="text-sm space-y-1">
-            <div>Open risks: {openRisks}</div>
-            <div>Escalations: {escalations}</div>
+        <DrawerSection title="Risks">
+          <div className="flex gap-6 text-sm">
+            <span className="text-[var(--text-2)]">Open: <strong className="text-[var(--text-0)]">{openRisks}</strong></span>
+            <span className="text-[var(--text-2)]">Escalated: <strong className="text-red-400">{escalations}</strong></span>
           </div>
-        </Section>
+        </DrawerSection>
       </div>
     </div>
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function DrawerSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="mb-5 pb-5 border-b border-[var(--border)] last:border-0">
-      <h4 className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide mb-2">{title}</h4>
+      <h4 className="text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-widest mb-3">{title}</h4>
       {children}
     </div>
   );
 }
 
-function SummaryTile({ label, value, color }: { label: string; value: number; color?: string }) {
+function Row({ label, value }: { label: string; value: React.ReactNode }) {
   return (
-    <div className="bg-white rounded-xl border border-[var(--border)] p-4">
-      <div className="text-xs text-[var(--text-secondary)] mb-1">{label}</div>
-      <div className={`text-2xl font-semibold ${color ?? ''}`}>{value}</div>
+    <div className="flex justify-between items-center">
+      <span className="text-[var(--text-2)]">{label}</span>
+      <span className="text-[var(--text-0)] font-medium ltr-num">{value}</span>
+    </div>
+  );
+}
+
+function Loading() {
+  return (
+    <div className="p-8">
+      <div className="h-8 w-48 bg-[var(--surface-1)] rounded-xl mb-8 animate-pulse" />
+      <div className="grid grid-cols-5 gap-4 mb-10">
+        {[...Array(5)].map((_, i) => <div key={i} className="h-24 bg-[var(--surface-0)] rounded-2xl animate-pulse" />)}
+      </div>
+      <div className="grid grid-cols-3 gap-5">
+        {[...Array(3)].map((_, i) => <div key={i} className="h-40 bg-[var(--surface-0)] rounded-2xl animate-pulse" />)}
+      </div>
     </div>
   );
 }
