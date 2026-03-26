@@ -2,11 +2,13 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { trpc } from '../lib/trpc.js';
 import { HealthDot, StatusBadge } from '../components/StatusBadge.js';
+import { Modal, FormField, Input, TextArea, Select, Button } from '../components/Modal.js';
 
 type Tab = 'ventures' | 'escalations' | 'decisions' | 'blockers' | 'resources';
 
 export function PMODashboard() {
   const [activeTab, setActiveTab] = useState<Tab>('ventures');
+  const [showCreateVenture, setShowCreateVenture] = useState(false);
   const { data, isLoading, error } = trpc.dashboard.pmo.useQuery();
   const navigate = useNavigate();
 
@@ -28,7 +30,10 @@ export function PMODashboard() {
 
   return (
     <div className="p-6 max-w-7xl mx-auto">
-      <h2 className="text-xl font-semibold mb-6">Venture Oversight</h2>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-xl font-semibold">Venture Oversight</h2>
+        <Button onClick={() => setShowCreateVenture(true)}>Create Venture</Button>
+      </div>
 
       {/* Tabs */}
       <div className="flex gap-1 mb-6 border-b border-[var(--border)]">
@@ -56,6 +61,8 @@ export function PMODashboard() {
       {activeTab === 'decisions' && <DecisionsPanel items={data.openDecisions} />}
       {activeTab === 'blockers' && <BlockersPanel items={data.openBlockers} />}
       {activeTab === 'resources' && <ResourcesPanel />}
+
+      <CreateVentureForm open={showCreateVenture} onClose={() => setShowCreateVenture(false)} />
     </div>
   );
 }
@@ -149,19 +156,29 @@ function EscalationsPanel({ data }: { data: { risks: any[]; issues: any[] } }) {
 }
 
 function DecisionsPanel({ items }: { items: any[] }) {
+  const utils = trpc.useUtils();
+  const resolve = trpc.risks.resolveDecision.useMutation({ onSuccess: () => utils.dashboard.pmo.invalidate() });
+
   if (items.length === 0) return <p className="text-[var(--text-secondary)]">No open decisions across ventures.</p>;
 
   return (
     <div className="space-y-3">
       {items.map(d => (
         <div key={d.id} className="bg-white rounded-lg border border-[var(--border)] p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <StatusBadge status="open" />
-            <span className="text-sm font-medium">{d.description}</span>
+          <div className="flex items-center justify-between">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
+                <StatusBadge status="open" />
+                <span className="text-sm font-medium">{d.description}</span>
+              </div>
+              <p className="text-xs text-[var(--text-secondary)]">
+                Logged: {new Date(d.createdAt ?? Date.now()).toLocaleDateString()}
+              </p>
+            </div>
+            <Button variant="secondary" onClick={() => resolve.mutate({ id: d.id })} disabled={resolve.isPending}>
+              Resolve
+            </Button>
           </div>
-          <p className="text-xs text-[var(--text-secondary)]">
-            Logged: {new Date(d.createdAt ?? Date.now()).toLocaleDateString()}
-          </p>
         </div>
       ))}
     </div>
@@ -169,19 +186,29 @@ function DecisionsPanel({ items }: { items: any[] }) {
 }
 
 function BlockersPanel({ items }: { items: any[] }) {
+  const utils = trpc.useUtils();
+  const resolve = trpc.risks.resolveBlocker.useMutation({ onSuccess: () => utils.dashboard.pmo.invalidate() });
+
   if (items.length === 0) return <p className="text-[var(--text-secondary)]">No open blockers across ventures.</p>;
 
   return (
     <div className="space-y-3">
       {items.map(b => (
         <div key={b.id} className="bg-white rounded-lg border border-[var(--border)] p-4">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-amber-500">●</span>
-            <span className="text-sm font-medium">{b.description}</span>
+          <div className="flex items-center justify-between">
+            <div className="flex items-start gap-2">
+              <span className="text-amber-500 mt-0.5">●</span>
+              <div>
+                <span className="text-sm font-medium">{b.description}</span>
+                <p className="text-xs text-[var(--text-secondary)]">
+                  Logged: {new Date(b.createdAt ?? Date.now()).toLocaleDateString()}
+                </p>
+              </div>
+            </div>
+            <Button variant="secondary" onClick={() => resolve.mutate({ id: b.id })} disabled={resolve.isPending}>
+              Resolve
+            </Button>
           </div>
-          <p className="text-xs text-[var(--text-secondary)]">
-            Logged: {new Date(b.createdAt ?? Date.now()).toLocaleDateString()}
-          </p>
         </div>
       ))}
     </div>
@@ -222,5 +249,50 @@ function ResourcesPanel() {
         </tbody>
       </table>
     </div>
+  );
+}
+
+function CreateVentureForm({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const utils = trpc.useUtils();
+  const create = trpc.ventures.create.useMutation({
+    onSuccess: () => { utils.dashboard.pmo.invalidate(); onClose(); },
+  });
+  const [form, setForm] = useState({ name: '', description: '', ventureType: '', pmUserId: '', startDate: '', targetEndDate: '' });
+
+  const handleSubmit = () => {
+    if (!form.name.trim() || !form.pmUserId || !form.startDate || !form.targetEndDate) return;
+    create.mutate({ ...form, description: form.description || undefined, ventureType: form.ventureType || undefined });
+    setForm({ name: '', description: '', ventureType: '', pmUserId: '', startDate: '', targetEndDate: '' });
+  };
+
+  return (
+    <Modal open={open} onClose={onClose} title="Create Venture">
+      <FormField label="Venture Name" required>
+        <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. DARI.AE" />
+      </FormField>
+      <FormField label="Description">
+        <TextArea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={2} placeholder="Brief description" />
+      </FormField>
+      <FormField label="Venture Type">
+        <Input value={form.ventureType} onChange={e => setForm(f => ({ ...f, ventureType: e.target.value }))} placeholder="e.g. Technology Platform" />
+      </FormField>
+      <FormField label="Assigned PM (User ID)" required>
+        <Input value={form.pmUserId} onChange={e => setForm(f => ({ ...f, pmUserId: e.target.value }))} placeholder="PM user UUID" />
+      </FormField>
+      <div className="grid grid-cols-2 gap-4">
+        <FormField label="Start Date" required>
+          <Input type="date" value={form.startDate} onChange={e => setForm(f => ({ ...f, startDate: e.target.value }))} />
+        </FormField>
+        <FormField label="Target End Date" required>
+          <Input type="date" value={form.targetEndDate} onChange={e => setForm(f => ({ ...f, targetEndDate: e.target.value }))} />
+        </FormField>
+      </div>
+      <div className="flex justify-end gap-2 mt-4">
+        <Button variant="secondary" onClick={onClose}>Cancel</Button>
+        <Button onClick={handleSubmit} disabled={create.isPending || !form.name.trim() || !form.pmUserId || !form.startDate || !form.targetEndDate}>
+          {create.isPending ? 'Creating...' : 'Create Venture'}
+        </Button>
+      </div>
+    </Modal>
   );
 }
