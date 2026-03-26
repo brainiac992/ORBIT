@@ -9,6 +9,7 @@ const navItems: Record<string, { label: string; icon: string; path: string }[]> 
     { label: 'Dashboard', icon: '📊', path: '/dashboard/pmo' },
     { label: 'Approvals', icon: '✅', path: '/approvals' },
     { label: 'Activity', icon: '⏱', path: '/activity' },
+    { label: 'Configuration', icon: '⚙', path: '/admin/config' },
   ],
   pm: [
     { label: 'Overview', icon: '🏠', path: '/dashboard/pm' },

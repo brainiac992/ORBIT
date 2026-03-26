@@ -17,6 +17,7 @@ import { ResourcesPage } from './pages/ResourcesPage.js';
 import { WeeklyUpdatePage } from './pages/WeeklyUpdate.js';
 import { ActivityPage } from './pages/ActivityPage.js';
 import { ApprovalsPage } from './pages/ApprovalsPage.js';
+import { ConfigPage } from './pages/ConfigPage.js';
 
 const roleHome: Record<string, string> = {
   gm: '/dashboard/gm',
@@ -45,6 +46,7 @@ function AppInner() {
         <Route path="/venture/:ventureId/update" element={<WeeklyUpdatePage />} />
         <Route path="/activity" element={<ActivityPage />} />
         <Route path="/approvals" element={<ApprovalsPage />} />
+        <Route path="/admin/config" element={<ConfigPage />} />
       </Route>
       <Route path="*" element={<Navigate to={user ? roleHome[user.role] : '/login'} />} />
     </Routes>

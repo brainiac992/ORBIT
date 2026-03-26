@@ -78,11 +78,13 @@ function CreateResourceForm({ open, onClose, ventureId }: { open: boolean; onClo
       utils.resources.list.invalidate();
       utils.resources.listForVenture.invalidate({ ventureId });
       utils.resources.allocationSummary.invalidate();
-      setForm({ name: '', type: 'internal', roleTitle: '', department: '', company: '' });
+      setForm({ name: '', type: 'internal', roleTitle: '', department: '', company: '', customRole: false, customDept: false });
       onClose();
     },
   });
-  const [form, setForm] = useState({ name: '', type: 'internal', roleTitle: '', department: '', company: '' });
+  const [form, setForm] = useState({ name: '', type: 'internal', roleTitle: '', department: '', company: '', customRole: false, customDept: false });
+  const { data: roleTitles } = trpc.config.listByCategory.useQuery({ category: 'role_title' }, { enabled: open });
+  const { data: departments } = trpc.config.listByCategory.useQuery({ category: 'department' }, { enabled: open });
 
   return (
     <Modal open={open} onClose={onClose} title="New Resource">
@@ -93,9 +95,51 @@ function CreateResourceForm({ open, onClose, ventureId }: { open: boolean; onClo
           <option value="external">External</option>
         </Select>
       </FormField>
-      <FormField label="Role / Title"><Input value={form.roleTitle} onChange={e => setForm(f => ({ ...f, roleTitle: e.target.value }))} placeholder="e.g. Senior Developer" /></FormField>
+      <FormField label="Role / Title">
+        {form.customRole ? (
+          <div className="flex gap-2">
+            <Input value={form.roleTitle} onChange={e => setForm(f => ({ ...f, roleTitle: e.target.value }))} placeholder="e.g. Senior Developer" />
+            <button onClick={() => setForm(f => ({ ...f, customRole: false, roleTitle: '' }))} className="text-xs text-[var(--text-3)] hover:text-[var(--text-0)] whitespace-nowrap">Use list</button>
+          </div>
+        ) : (
+          <Select value={form.roleTitle} onChange={e => {
+            if (e.target.value === '__custom__') {
+              setForm(f => ({ ...f, customRole: true, roleTitle: '' }));
+            } else {
+              setForm(f => ({ ...f, roleTitle: e.target.value }));
+            }
+          }}>
+            <option value="">Select a role</option>
+            {roleTitles?.map((opt: any) => (
+              <option key={opt.id} value={opt.value}>{opt.label}</option>
+            ))}
+            <option value="__custom__">Custom...</option>
+          </Select>
+        )}
+      </FormField>
       {form.type === 'internal' && (
-        <FormField label="Department"><Input value={form.department} onChange={e => setForm(f => ({ ...f, department: e.target.value }))} placeholder="e.g. Engineering" /></FormField>
+        <FormField label="Department">
+          {form.customDept ? (
+            <div className="flex gap-2">
+              <Input value={form.department} onChange={e => setForm(f => ({ ...f, department: e.target.value }))} placeholder="e.g. Engineering" />
+              <button onClick={() => setForm(f => ({ ...f, customDept: false, department: '' }))} className="text-xs text-[var(--text-3)] hover:text-[var(--text-0)] whitespace-nowrap">Use list</button>
+            </div>
+          ) : (
+            <Select value={form.department} onChange={e => {
+              if (e.target.value === '__custom__') {
+                setForm(f => ({ ...f, customDept: true, department: '' }));
+              } else {
+                setForm(f => ({ ...f, department: e.target.value }));
+              }
+            }}>
+              <option value="">Select a department</option>
+              {departments?.map((opt: any) => (
+                <option key={opt.id} value={opt.value}>{opt.label}</option>
+              ))}
+              <option value="__custom__">Custom...</option>
+            </Select>
+          )}
+        </FormField>
       )}
       {form.type === 'external' && (
         <FormField label="Company"><Input value={form.company} onChange={e => setForm(f => ({ ...f, company: e.target.value }))} placeholder="e.g. Acme Consulting" /></FormField>

@@ -309,6 +309,21 @@ export const auditTrail = pgTable('audit_trail', {
   index('audit_changed_at_idx').on(table.changedAt),
 ]);
 
+// ── Config Options ────────────────────────────────────────
+
+export const configOptions = pgTable('config_options', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  category: varchar('category', { length: 50 }).notNull(),
+  label: varchar('label', { length: 255 }).notNull(),
+  value: varchar('value', { length: 255 }).notNull(),
+  sortOrder: integer('sort_order').default(0).notNull(),
+  active: boolean('active').default(true).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index('config_options_category_active_idx').on(table.category, table.active),
+]);
+
 // ── Approvals ─────────────────────────────────────────────
 
 export const approvals = pgTable('approvals', {

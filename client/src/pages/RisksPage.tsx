@@ -36,8 +36,6 @@ export function RisksPage() {
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
-      <VentureTabs ventureId={ventureId!} active="risks" />
-
       {/* ── Risks ────────────────────────── */}
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold">Risks</h3>

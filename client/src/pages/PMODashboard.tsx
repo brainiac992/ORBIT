@@ -241,14 +241,15 @@ function EmptyState({ icon, text }: { icon: string; text: string }) {
 function CreateVentureForm({ open, onClose }: { open: boolean; onClose: () => void }) {
   const utils = trpc.useUtils();
   const { data: allUsers } = trpc.ventures.list.useQuery(undefined, { enabled: open });
+  const { data: ventureTypes } = trpc.config.listByCategory.useQuery({ category: 'venture_type' }, { enabled: open });
   const create = trpc.ventures.create.useMutation({
     onSuccess: () => {
       utils.dashboard.pmo.invalidate();
-      setForm({ name: '', description: '', ventureType: '', pmUserId: '', startDate: '', targetEndDate: '' });
+      setForm({ name: '', description: '', ventureType: '', pmUserId: '', startDate: '', targetEndDate: '', customType: false });
       onClose();
     },
   });
-  const [form, setForm] = useState({ name: '', description: '', ventureType: '', pmUserId: '', startDate: '', targetEndDate: '' });
+  const [form, setForm] = useState({ name: '', description: '', ventureType: '', pmUserId: '', startDate: '', targetEndDate: '', customType: false });
 
   const canSubmit = form.name.trim() && form.pmUserId && form.startDate;
 
@@ -273,7 +274,26 @@ function CreateVentureForm({ open, onClose }: { open: boolean; onClose: () => vo
         <TextArea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={2} placeholder="Brief description" />
       </FormField>
       <FormField label="Venture Type">
-        <Input value={form.ventureType} onChange={e => setForm(f => ({ ...f, ventureType: e.target.value }))} placeholder="e.g. Technology Platform" />
+        {form.customType ? (
+          <div className="flex gap-2">
+            <Input value={form.ventureType} onChange={e => setForm(f => ({ ...f, ventureType: e.target.value }))} placeholder="e.g. Technology Platform" />
+            <button onClick={() => setForm(f => ({ ...f, customType: false, ventureType: '' }))} className="text-xs text-[var(--text-3)] hover:text-[var(--text-0)] whitespace-nowrap">Use list</button>
+          </div>
+        ) : (
+          <Select value={form.ventureType} onChange={e => {
+            if (e.target.value === '__custom__') {
+              setForm(f => ({ ...f, customType: true, ventureType: '' }));
+            } else {
+              setForm(f => ({ ...f, ventureType: e.target.value }));
+            }
+          }}>
+            <option value="">Select a type</option>
+            {ventureTypes?.map((opt: any) => (
+              <option key={opt.id} value={opt.value}>{opt.label}</option>
+            ))}
+            <option value="__custom__">Custom...</option>
+          </Select>
+        )}
       </FormField>
       <FormField label="Assigned PM" required>
         <Input value={form.pmUserId} onChange={e => setForm(f => ({ ...f, pmUserId: e.target.value }))} placeholder="Enter PM user ID (UUID)" />

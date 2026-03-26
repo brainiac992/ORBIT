@@ -12,6 +12,7 @@ import { auditRouter } from './audit.js';
 import { approvalsRouter } from './approvals.js';
 import { exportRouter } from './export.js';
 import { ganttRouter } from './gantt.js';
+import { configRouter } from './config.js';
 
 export const appRouter = router({
   ventures: venturesRouter,
@@ -27,6 +28,7 @@ export const appRouter = router({
   approvals: approvalsRouter,
   export: exportRouter,
   gantt: ganttRouter,
+  config: configRouter,
 });
 
 export type AppRouter = typeof appRouter;
