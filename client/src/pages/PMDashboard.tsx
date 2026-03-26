@@ -33,11 +33,9 @@ export function PMDashboard() {
         <KpiTile label="Open Risks" value={<span className="text-lg font-semibold">{openRisksCount}</span>} />
       </div>
 
-      {/* Latest blocker */}
+      {/* Blockers */}
       {openBlockersCount > 0 && (
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-6">
-          <div className="text-xs font-medium text-amber-700 uppercase tracking-wide mb-1">Open Blockers: {openBlockersCount}</div>
-        </div>
+        <BlockersList ventureId={venture.id} />
       )}
 
       {/* Latest update narrative */}
@@ -75,6 +73,40 @@ function KpiTile({ label, value }: { label: string; value: React.ReactNode }) {
     <div className="bg-white rounded-xl border border-[var(--border)] p-4">
       <div className="text-xs text-[var(--text-secondary)] mb-2">{label}</div>
       {value}
+    </div>
+  );
+}
+
+function BlockersList({ ventureId }: { ventureId: string }) {
+  const { data: blockers } = trpc.risks.listBlockers.useQuery({ ventureId });
+  const openBlockers = blockers?.filter(b => b.status === 'open') ?? [];
+  const resolvedBlockers = blockers?.filter(b => b.status === 'resolved') ?? [];
+
+  if (!blockers || openBlockers.length === 0) return null;
+
+  return (
+    <div className="bg-amber-50 border border-amber-200 rounded-xl p-5 mb-6">
+      <h3 className="text-xs font-medium text-amber-700 uppercase tracking-wide mb-3">
+        Open Blockers ({openBlockers.length})
+      </h3>
+      <div className="space-y-2">
+        {openBlockers.map((b: any) => (
+          <div key={b.id} className="flex items-start gap-2 text-sm">
+            <span className="text-amber-500 mt-0.5">●</span>
+            <span>{b.description}</span>
+          </div>
+        ))}
+      </div>
+      {resolvedBlockers.length > 0 && (
+        <details className="mt-3">
+          <summary className="text-xs text-amber-600 cursor-pointer">Resolved ({resolvedBlockers.length})</summary>
+          <div className="space-y-1 mt-2">
+            {resolvedBlockers.map((b: any) => (
+              <div key={b.id} className="text-sm text-[var(--text-secondary)] line-through">{b.description}</div>
+            ))}
+          </div>
+        </details>
+      )}
     </div>
   );
 }

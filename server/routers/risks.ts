@@ -166,6 +166,15 @@ export const risksRouter = router({
         .where(eq(decisions.status, 'open'));
     }),
 
+  // ── Per-venture blockers ────────────────────────
+
+  listBlockers: protectedProcedure
+    .input(z.object({ ventureId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      await assertVentureReadAccess(ctx, input.ventureId);
+      return ctx.db.select().from(blockers).where(eq(blockers.ventureId, input.ventureId));
+    }),
+
   // ── Cross-venture blockers ─────────────────────
 
   allOpenBlockers: protectedProcedure

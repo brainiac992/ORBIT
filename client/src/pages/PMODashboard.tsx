@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { trpc } from '../lib/trpc.js';
 import { HealthDot, StatusBadge } from '../components/StatusBadge.js';
 
-type Tab = 'ventures' | 'escalations' | 'decisions' | 'resources';
+type Tab = 'ventures' | 'escalations' | 'decisions' | 'blockers' | 'resources';
 
 export function PMODashboard() {
   const [activeTab, setActiveTab] = useState<Tab>('ventures');
@@ -16,11 +16,13 @@ export function PMODashboard() {
 
   const escalationCount = data.escalations.risks.length + data.escalations.issues.length;
   const decisionCount = data.openDecisions.length;
+  const blockerCount = data.openBlockers.length;
 
   const tabs: { id: Tab; label: string; badge?: number }[] = [
     { id: 'ventures', label: 'Ventures' },
     { id: 'escalations', label: 'Escalations', badge: escalationCount || undefined },
     { id: 'decisions', label: 'Decisions Needed', badge: decisionCount || undefined },
+    { id: 'blockers', label: 'Blockers', badge: blockerCount || undefined },
     { id: 'resources', label: 'Resources' },
   ];
 
@@ -52,6 +54,7 @@ export function PMODashboard() {
       {activeTab === 'ventures' && <VenturesTable ventures={data.ventures} onSelect={id => navigate(`/venture/${id}/plan`)} />}
       {activeTab === 'escalations' && <EscalationsPanel data={data.escalations} />}
       {activeTab === 'decisions' && <DecisionsPanel items={data.openDecisions} />}
+      {activeTab === 'blockers' && <BlockersPanel items={data.openBlockers} />}
       {activeTab === 'resources' && <ResourcesPanel />}
     </div>
   );
@@ -158,6 +161,26 @@ function DecisionsPanel({ items }: { items: any[] }) {
           </div>
           <p className="text-xs text-[var(--text-secondary)]">
             Logged: {new Date(d.createdAt ?? Date.now()).toLocaleDateString()}
+          </p>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function BlockersPanel({ items }: { items: any[] }) {
+  if (items.length === 0) return <p className="text-[var(--text-secondary)]">No open blockers across ventures.</p>;
+
+  return (
+    <div className="space-y-3">
+      {items.map(b => (
+        <div key={b.id} className="bg-white rounded-lg border border-[var(--border)] p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-amber-500">●</span>
+            <span className="text-sm font-medium">{b.description}</span>
+          </div>
+          <p className="text-xs text-[var(--text-secondary)]">
+            Logged: {new Date(b.createdAt ?? Date.now()).toLocaleDateString()}
           </p>
         </div>
       ))}
