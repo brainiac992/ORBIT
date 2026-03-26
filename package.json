@@ -3,12 +3,17 @@
   "version": "1.0.0",
   "description": "ADRES PMO Platform — venture tracking, dashboards, and reporting",
   "type": "module",
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
     "dev": "tsx watch server/index.ts",
-    "build:server": "tsc -p tsconfig.server.json",
+    "build": "cd client && npm install && npm run build && cd ..",
+    "start": "drizzle-kit push && node --import tsx server/index.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
+    "db:seed": "tsx server/db/seed.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },
@@ -17,10 +22,13 @@
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.6",
     "dotenv": "^17.3.1",
+    "drizzle-kit": "^0.31.10",
     "drizzle-orm": "^0.45.1",
     "express": "^5.2.1",
     "postgres": "^3.4.8",
     "superjson": "^2.2.6",
+    "tsx": "^4.21.0",
+    "typescript": "^6.0.2",
     "zod": "^4.3.6"
   },
   "devDependencies": {
@@ -28,9 +36,6 @@
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "^25.5.0",
-    "drizzle-kit": "^0.31.10",
-    "tsx": "^4.21.0",
-    "typescript": "^6.0.2",
     "vitest": "^4.1.1"
   }
 }
