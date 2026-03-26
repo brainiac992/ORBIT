@@ -99,7 +99,7 @@ export function RisksPage() {
       {/* ── Blockers ─────────────────────── */}
       <div className="flex items-center justify-between mb-4">
         <h3 className="text-lg font-semibold text-[var(--text-0)]">Blockers</h3>
-        {!isGM && <Button variant="secondary" onClick={() => setShowBlockerForm(true)}>Add Blocker</Button>}
+        {!isGM && <Button onClick={() => setShowBlockerForm(true)}>Add Blocker</Button>}
       </div>
 
       {openBlockers.length === 0 ? (
