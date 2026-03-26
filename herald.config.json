@@ -1,0 +1,31 @@
+{
+  "fast_track": {
+    "enabled": true,
+    "allow_slash_fast": true,
+    "auto_classify": true
+  },
+  "brainstorm": {
+    "enabled": true,
+    "allow_promote_to_plan": true
+  },
+  "token_budget": {
+    "enabled": true,
+    "soft_limit": 50000,
+    "warn_at": 0.75,
+    "context_checkpoint_at": 0.75
+  },
+  "pipeline": {
+    "require_plan_approval": true,
+    "require_plan_always": true,
+    "success_threshold": 95,
+    "default_max_retries": 2
+  },
+  "domain_pipeline": {
+    "mode": "pmo",
+    "skip_sa_planning": true,
+    "plan_approval_gate": "pm_brief",
+    "feedback_loop_trigger": "phase_7_complete",
+    "test_first_gate": "defer_to_phase_4"
+  },
+  "version": "1.0"
+}

@@ -1,0 +1,22 @@
+{
+  "agents": [
+    {
+      "id": "sa",
+      "name": "Systems & Business Analyst",
+      "scope": "Validate specs, plan execution, classify agents needed, score outcomes",
+      "spawn_type": "dominant",
+      "status": "active",
+      "created": "2026-03-17"
+    },
+    {
+      "id": "agent_builder",
+      "name": "Agent Builder",
+      "scope": "Build new agents to spec — purpose, scope, spawn type, and instructions",
+      "spawn_type": "dominant",
+      "status": "active",
+      "created": "2026-03-17"
+    }
+  ],
+  "version": "1.0",
+  "last_updated": null
+}
