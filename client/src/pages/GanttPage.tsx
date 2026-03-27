@@ -7,6 +7,30 @@ export function GanttPage() {
   const { data, isLoading, error } = trpc.gantt.data.useQuery({ ventureId: ventureId! });
   const [zoom, setZoom] = useState<'week' | 'month'>('week');
 
+  const periods = useMemo(() => {
+    if (!data) return [];
+    const start = new Date(data.ventureStartDate);
+    const end = new Date(data.ventureEndDate);
+    const buffered = new Date(end.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const result: { label: string; startDay: number; span: number }[] = [];
+    const cur = new Date(start);
+    while (cur <= buffered) {
+      const periodStart = Math.max(0, Math.ceil((cur.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)));
+      if (zoom === 'week') {
+        const wn = Math.ceil(((cur.getTime() - new Date(cur.getFullYear(), 0, 1).getTime()) / 86400000 + 1) / 7);
+        result.push({ label: `W${wn}`, startDay: periodStart, span: 7 });
+        cur.setDate(cur.getDate() + 7);
+      } else {
+        const label = cur.toLocaleDateString('en', { month: 'short', year: '2-digit' });
+        const daysInMonth = new Date(cur.getFullYear(), cur.getMonth() + 1, 0).getDate();
+        result.push({ label, startDay: periodStart, span: daysInMonth });
+        cur.setMonth(cur.getMonth() + 1);
+        cur.setDate(1);
+      }
+    }
+    return result;
+  }, [data?.ventureStartDate, data?.ventureEndDate, zoom]);
+
   if (isLoading) return <div className="p-8 text-[var(--text-3)]">Loading Gantt chart...</div>;
   if (error) return <div className="p-8 text-red-400">Unable to load Gantt data.</div>;
   if (!data || data.workstreams.length === 0) {
@@ -21,7 +45,6 @@ export function GanttPage() {
 
   const startDate = new Date(data.ventureStartDate);
   const endDate = new Date(data.ventureEndDate);
-  // Add 30-day buffer past end date
   const bufferedEnd = new Date(endDate.getTime() + 30 * 24 * 60 * 60 * 1000);
   const totalDays = Math.max(30, Math.ceil((bufferedEnd.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)));
 
@@ -29,26 +52,6 @@ export function GanttPage() {
   const chartWidth = totalDays * dayWidth;
   const today = new Date();
   const todayOffset = Math.ceil((today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-
-  const periods = useMemo(() => {
-    const result: { label: string; startDay: number; span: number }[] = [];
-    const cur = new Date(startDate);
-    while (cur <= bufferedEnd) {
-      const periodStart = Math.max(0, Math.ceil((cur.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)));
-      if (zoom === 'week') {
-        const wn = Math.ceil(((cur.getTime() - new Date(cur.getFullYear(), 0, 1).getTime()) / 86400000 + 1) / 7);
-        result.push({ label: `W${wn}`, startDay: periodStart, span: 7 });
-        cur.setDate(cur.getDate() + 7);
-      } else {
-        const label = cur.toLocaleDateString('en', { month: 'short', year: '2-digit' });
-        const daysInMonth = new Date(cur.getFullYear(), cur.getMonth() + 1, 0).getDate();
-        result.push({ label, startDay: periodStart, span: daysInMonth });
-        cur.setMonth(cur.getMonth() + 1);
-        cur.setDate(1);
-      }
-    }
-    return result;
-  }, [data.ventureStartDate, data.ventureEndDate, zoom]);
 
   const barColor: Record<string, string> = {
     not_started: 'bg-gray-500/50',
