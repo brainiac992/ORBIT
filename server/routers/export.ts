@@ -6,7 +6,7 @@ import {
   resourceAssignments, resources, users,
 } from '../db/schema.js';
 
-import { eq, ne, desc } from 'drizzle-orm';
+import { eq, ne, desc, inArray } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import type { BudgetStatus } from '../../shared/enums.js';
 
@@ -34,7 +34,7 @@ export const exportRouter = router({
 
       const wsIds = ventureWorkstreams.map(w => w.id);
       const allMilestones = wsIds.length > 0
-        ? (await ctx.db.select().from(milestones)).filter(m => wsIds.includes(m.workstreamId))
+        ? await ctx.db.select().from(milestones).where(inArray(milestones.workstreamId, wsIds))
         : [];
 
       const ventureRisks = await ctx.db.select().from(risks).where(eq(risks.ventureId, input.ventureId));
@@ -91,23 +91,49 @@ export const exportRouter = router({
     .use(requireRole('gm', 'pmo'))
     .query(async ({ ctx }) => {
       const allVentures = await ctx.db.select().from(ventures).where(ne(ventures.status, 'archived'));
-      const allUsers = await ctx.db.select().from(users);
-      const allEntries = await ctx.db.select().from(budgetEntries);
-      const allForecasts = await ctx.db.select().from(budgetForecasts);
-      const allEscalatedRisks = (await ctx.db.select().from(risks)).filter(r => r.escalated && r.status === 'open');
-      const allEscalatedIssues = (await ctx.db.select().from(issues)).filter(i => i.escalated && i.status !== 'resolved');
+      const expPmIds = [...new Set(allVentures.map(v => v.pmUserId))];
+      const expUsers = expPmIds.length > 0
+        ? await ctx.db.select().from(users).where(inArray(users.id, expPmIds))
+        : [];
+      const expUserMap = new Map(expUsers.map(u => [u.id, u]));
+
+      const expVentureIds = allVentures.map(v => v.id);
+      const allEntries = expVentureIds.length > 0
+        ? await ctx.db.select().from(budgetEntries).where(inArray(budgetEntries.ventureId, expVentureIds))
+        : [];
+      const allForecasts = expVentureIds.length > 0
+        ? await ctx.db.select().from(budgetForecasts).where(inArray(budgetForecasts.ventureId, expVentureIds))
+        : [];
+      const allEscalatedRisks = (await ctx.db.select().from(risks).where(eq(risks.escalated, true)))
+        .filter(r => r.status === 'open');
+      const allEscalatedIssues = (await ctx.db.select().from(issues).where(eq(issues.escalated, true)))
+        .filter(i => i.status !== 'resolved');
+
+      // Pre-index for O(1) lookups
+      const expEntriesByVenture = new Map<string, typeof allEntries>();
+      for (const e of allEntries) {
+        const list = expEntriesByVenture.get(e.ventureId);
+        if (list) list.push(e);
+        else expEntriesByVenture.set(e.ventureId, [e]);
+      }
+      const expForecastsByVenture = new Map<string, typeof allForecasts>();
+      for (const f of allForecasts) {
+        const list = expForecastsByVenture.get(f.ventureId);
+        if (list) list.push(f);
+        else expForecastsByVenture.set(f.ventureId, [f]);
+      }
 
       const ventureCards = allVentures.map(v => {
-        const pm = allUsers.find(u => u.id === v.pmUserId);
-        const ventureEntries = allEntries.filter(e => e.ventureId === v.id);
+        const pm = expUserMap.get(v.pmUserId);
+        const ventureEntries = expEntriesByVenture.get(v.id) ?? [];
         const actualSpend = ventureEntries
           .filter(e => e.entryType === 'actual' || e.entryType === 'correction')
           .reduce((s, e) => s + Number(e.amount), 0);
         const committedSpend = ventureEntries
           .filter(e => e.entryType === 'committed')
           .reduce((s, e) => s + Number(e.amount), 0);
-        const latestForecast = allForecasts
-          .filter(f => f.ventureId === v.id)
+        const ventureForecasts = expForecastsByVenture.get(v.id) ?? [];
+        const latestForecast = ventureForecasts
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
         const forecastToComplete = latestForecast ? Number(latestForecast.forecastToComplete) : 0;
         const forecastAtCompletion = actualSpend + committedSpend + forecastToComplete;

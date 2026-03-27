@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { router, protectedProcedure, requireRole } from '../trpc.js';
 import { resources, resourceAssignments, ventures } from '../db/schema.js';
-import { eq, and, or, isNull, gte, sql } from 'drizzle-orm';
+import { eq, and, or, isNull, gte, sql, inArray } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { RESOURCE_TYPE } from '../../shared/enums.js';
 import { logAuditDiff } from '../services/audit.js';
@@ -30,8 +30,7 @@ export const resourcesRouter = router({
       const resourceIds = [...new Set(assignments.map(a => a.resourceId))];
       if (resourceIds.length === 0) return [];
 
-      const allResources = await ctx.db.select().from(resources);
-      const assignedResources = allResources.filter(r => resourceIds.includes(r.id));
+      const assignedResources = await ctx.db.select().from(resources).where(inArray(resources.id, resourceIds));
 
       return assignedResources.map(r => ({
         ...r,
@@ -130,17 +129,29 @@ export const resourcesRouter = router({
 
       const allResources = await ctx.db.select().from(resources).where(eq(resources.active, true));
       const allAssignments = await ctx.db.select().from(resourceAssignments);
-      const allVentures = await ctx.db.select().from(ventures);
+      const ventureIds = [...new Set(allAssignments.map(a => a.ventureId))];
+      const allVentures = ventureIds.length > 0
+        ? await ctx.db.select().from(ventures).where(inArray(ventures.id, ventureIds))
+        : [];
+      const ventureMap = new Map(allVentures.map(v => [v.id, v]));
+
+      // Pre-index assignments by resourceId for O(1) lookup
+      const assignmentsByResource = new Map<string, typeof allAssignments>();
+      for (const a of allAssignments) {
+        const list = assignmentsByResource.get(a.resourceId);
+        if (list) list.push(a);
+        else assignmentsByResource.set(a.resourceId, [a]);
+      }
 
       // Per-resource breakdown with venture HpW
       const resourceBreakdowns = allResources.map(r => {
-        const assignments = allAssignments.filter(a =>
-          a.resourceId === r.id &&
-          (a.endDate === null || a.endDate >= todayStr)
+        const rAssignments = assignmentsByResource.get(r.id) ?? [];
+        const activeAssignments = rAssignments.filter(a =>
+          a.endDate === null || a.endDate >= todayStr
         );
 
-        const ventureBreakdown = assignments.map(a => {
-          const venture = allVentures.find(v => v.id === a.ventureId);
+        const ventureBreakdown = activeAssignments.map(a => {
+          const venture = ventureMap.get(a.ventureId);
           return {
             ventureId: a.ventureId,
             ventureName: venture?.name ?? 'Unknown',
@@ -180,12 +191,12 @@ export const resourcesRouter = router({
         let totalAllocated = 0;
 
         for (const r of allResources) {
-          const activeAssignments = allAssignments.filter(a =>
-            a.resourceId === r.id &&
+          const rAssignments = assignmentsByResource.get(r.id) ?? [];
+          const active = rAssignments.filter(a =>
             a.startDate <= weekEndStr &&
             (a.endDate === null || a.endDate >= weekStartStr)
           );
-          totalAllocated += activeAssignments.reduce((sum, a) => sum + Number(a.hoursPerWeek), 0);
+          totalAllocated += active.reduce((sum, a) => sum + Number(a.hoursPerWeek), 0);
         }
 
         weeklyCapacity.push({
@@ -218,13 +229,17 @@ export const resourcesRouter = router({
         a.endDate === null || a.endDate >= todayStr
       );
 
-      const allResources = await ctx.db.select().from(resources);
+      const activeResourceIds = [...new Set(activeAssignments.map(a => a.resourceId))];
+      const assignedResources = activeResourceIds.length > 0
+        ? await ctx.db.select().from(resources).where(inArray(resources.id, activeResourceIds))
+        : [];
+      const resourceMap = new Map(assignedResources.map(r => [r.id, r]));
 
       // Group by resource type (internal/external)
       const byType: Record<string, number> = { internal: 0, external: 0 };
 
       for (const a of activeAssignments) {
-        const resource = allResources.find(r => r.id === a.resourceId);
+        const resource = resourceMap.get(a.resourceId);
         if (resource) {
           const type = resource.type;
           byType[type] = (byType[type] || 0) + Number(a.hoursPerWeek);
@@ -237,7 +252,7 @@ export const resourcesRouter = router({
         totalHoursPerWeek: byType.internal + byType.external,
         byResourceType: byType,
         assignments: activeAssignments.map(a => {
-          const resource = allResources.find(r => r.id === a.resourceId);
+          const resource = resourceMap.get(a.resourceId);
           return {
             resourceId: a.resourceId,
             resourceName: resource?.name ?? 'Unknown',

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { router, protectedProcedure } from '../trpc.js';
 import { ventures, workstreams, milestones, taskDependencies } from '../db/schema.js';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 
 export const ganttRouter = router({
@@ -22,7 +22,7 @@ export const ganttRouter = router({
 
       const wsIds = ventureWorkstreams.map(w => w.id);
       const allMilestones = wsIds.length > 0
-        ? (await ctx.db.select().from(milestones)).filter(m => wsIds.includes(m.workstreamId))
+        ? await ctx.db.select().from(milestones).where(inArray(milestones.workstreamId, wsIds))
         : [];
 
       const deps = await ctx.db

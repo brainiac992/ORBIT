@@ -10,7 +10,7 @@ export function BudgetPage() {
   const { ventureId } = useParams<{ ventureId: string }>();
   const { user } = useAuth();
   const utils = trpc.useUtils();
-  const { data, isLoading } = trpc.budget.summary.useQuery({ ventureId: ventureId! });
+  const { data, isLoading, error } = trpc.budget.summary.useQuery({ ventureId: ventureId! });
   const [showSpendForm, setShowSpendForm] = useState(false);
   const [showForecastForm, setShowForecastForm] = useState(false);
   const [showSetBudget, setShowSetBudget] = useState(false);
@@ -19,6 +19,7 @@ export function BudgetPage() {
   const isPMO = user?.role === 'pmo';
 
   if (isLoading) return <div className="p-8 text-center text-[var(--text-3)]">Loading budget...</div>;
+  if (error) return <div className="p-8 text-red-400">Unable to load budget data.</div>;
   if (!data) return null;
 
   const categoryBars = [

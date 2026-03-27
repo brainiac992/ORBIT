@@ -4,7 +4,7 @@ import {
   ventures, users, risks, issues, blockers, decisions,
   progressUpdates, budgetEntries, budgetForecasts, resourceAssignments, resources,
 } from '../db/schema.js';
-import { eq, ne, desc } from 'drizzle-orm';
+import { eq, ne, desc, inArray } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import type { BudgetStatus } from '../../shared/enums.js';
 
@@ -26,22 +26,47 @@ export const dashboardRouter = router({
         .from(ventures)
         .where(ne(ventures.status, 'archived'));
 
-      const allUsers = await ctx.db.select().from(users);
+      // Fetch only users referenced by ventures
+      const pmIds = [...new Set(allVentures.map(v => v.pmUserId))];
+      const ventureUsers = pmIds.length > 0
+        ? await ctx.db.select().from(users).where(inArray(users.id, pmIds))
+        : [];
+      const userMap = new Map(ventureUsers.map(u => [u.id, u]));
+
       const allEscalatedRisks = await ctx.db.select().from(risks).where(eq(risks.escalated, true));
       const allEscalatedIssues = await ctx.db.select().from(issues).where(eq(issues.escalated, true));
 
-      // Get budget summaries for each venture
-      const allEntries = await ctx.db.select().from(budgetEntries);
-      const allForecasts = await ctx.db.select().from(budgetForecasts);
+      // Get budget summaries — fetch only for active ventures
+      const ventureIds = allVentures.map(v => v.id);
+      const allEntries = ventureIds.length > 0
+        ? await ctx.db.select().from(budgetEntries).where(inArray(budgetEntries.ventureId, ventureIds))
+        : [];
+      const allForecasts = ventureIds.length > 0
+        ? await ctx.db.select().from(budgetForecasts).where(inArray(budgetForecasts.ventureId, ventureIds))
+        : [];
+
+      // Pre-index for O(1) lookups
+      const entriesByVenture = new Map<string, typeof allEntries>();
+      for (const e of allEntries) {
+        const list = entriesByVenture.get(e.ventureId);
+        if (list) list.push(e);
+        else entriesByVenture.set(e.ventureId, [e]);
+      }
+      const forecastsByVenture = new Map<string, typeof allForecasts>();
+      for (const f of allForecasts) {
+        const list = forecastsByVenture.get(f.ventureId);
+        if (list) list.push(f);
+        else forecastsByVenture.set(f.ventureId, [f]);
+      }
 
       const ventureCards = allVentures.map(v => {
-        const pm = allUsers.find(u => u.id === v.pmUserId);
+        const pm = userMap.get(v.pmUserId);
         const escalationCount =
           allEscalatedRisks.filter(r => r.ventureId === v.id && r.status === 'open').length +
           allEscalatedIssues.filter(i => i.ventureId === v.id && i.status !== 'resolved').length;
 
         // Derive budget status
-        const ventureEntries = allEntries.filter(e => e.ventureId === v.id);
+        const ventureEntries = entriesByVenture.get(v.id) ?? [];
         const actualSpend = ventureEntries
           .filter(e => e.entryType === 'actual' || e.entryType === 'correction')
           .reduce((s, e) => s + Number(e.amount), 0);
@@ -49,8 +74,8 @@ export const dashboardRouter = router({
           .filter(e => e.entryType === 'committed')
           .reduce((s, e) => s + Number(e.amount), 0);
 
-        const ventureForecast = allForecasts
-          .filter(f => f.ventureId === v.id)
+        const ventureForecasts = forecastsByVenture.get(v.id) ?? [];
+        const ventureForecast = ventureForecasts
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
         const forecastToComplete = ventureForecast ? Number(ventureForecast.forecastToComplete) : 0;
         const forecastAtCompletion = actualSpend + committedSpend + forecastToComplete;
@@ -87,7 +112,11 @@ export const dashboardRouter = router({
     .use(requireRole('pmo'))
     .query(async ({ ctx }) => {
       const allVentures = await ctx.db.select().from(ventures).where(ne(ventures.status, 'archived'));
-      const allUsers = await ctx.db.select().from(users);
+      const pmoPmIds = [...new Set(allVentures.map(v => v.pmUserId))];
+      const pmoUsers = pmoPmIds.length > 0
+        ? await ctx.db.select().from(users).where(inArray(users.id, pmoPmIds))
+        : [];
+      const pmoUserMap = new Map(pmoUsers.map(u => [u.id, u]));
       const allOpenBlockers = await ctx.db.select().from(blockers).where(eq(blockers.status, 'open'));
       const allOpenDecisions = await ctx.db.select().from(decisions).where(eq(decisions.status, 'open'));
       const allEscalatedRisks = await ctx.db.select().from(risks).where(eq(risks.escalated, true));
@@ -97,7 +126,7 @@ export const dashboardRouter = router({
       const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
 
       const ventureRows = allVentures.map(v => {
-        const pm = allUsers.find(u => u.id === v.pmUserId);
+        const pm = pmoUserMap.get(v.pmUserId);
         const isStale = new Date(v.updatedAt) < sevenDaysAgo;
         const openRisksCount = allEscalatedRisks.filter(r => r.ventureId === v.id).length;
 

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { router, protectedProcedure } from '../trpc.js';
 import { milestones, workstreams, ventures } from '../db/schema.js';
-import { eq } from 'drizzle-orm';
+import { eq, inArray } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { MILESTONE_STATUS } from '../../shared/enums.js';
 import { logAuditDiff } from '../services/audit.js';
@@ -43,10 +43,8 @@ export const milestonesRouter = router({
       const wsIds = ventureWorkstreams.map(w => w.id);
       if (wsIds.length === 0) return [];
 
-      const allMilestones = await ctx.db.select().from(milestones);
-      return allMilestones
-        .filter(m => wsIds.includes(m.workstreamId))
-        .map(applyOverdueLogic);
+      const vMilestones = await ctx.db.select().from(milestones).where(inArray(milestones.workstreamId, wsIds));
+      return vMilestones.map(applyOverdueLogic);
     }),
 
   create: protectedProcedure

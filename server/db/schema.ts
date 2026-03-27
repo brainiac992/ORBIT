@@ -160,7 +160,10 @@ export const workstreamUpdates = pgTable('workstream_updates', {
   status: workstreamStatusEnum('status').notNull(),
   completionPct: integer('completion_pct').notNull(),
   notes: text('notes'),
-});
+}, (table) => [
+  index('ws_updates_progress_id_idx').on(table.progressUpdateId),
+  index('ws_updates_workstream_id_idx').on(table.workstreamId),
+]);
 
 // ── Milestone Completions (child of progress update) ───────
 
@@ -169,7 +172,10 @@ export const milestoneCompletions = pgTable('milestone_completions', {
   progressUpdateId: uuid('progress_update_id').references(() => progressUpdates.id).notNull(),
   milestoneId: uuid('milestone_id').references(() => milestones.id).notNull(),
   completedAt: date('completed_at').notNull(),
-});
+}, (table) => [
+  index('ms_completions_progress_id_idx').on(table.progressUpdateId),
+  index('ms_completions_milestone_id_idx').on(table.milestoneId),
+]);
 
 // ── Blockers ───────────────────────────────────────────────
 
@@ -183,6 +189,7 @@ export const blockers = pgTable('blockers', {
   resolvedBy: uuid('resolved_by').references(() => users.id),
 }, (table) => [
   index('blockers_venture_id_idx').on(table.ventureId),
+  index('blockers_status_idx').on(table.status),
 ]);
 
 // ── Decisions ──────────────────────────────────────────────
@@ -197,6 +204,7 @@ export const decisions = pgTable('decisions', {
   resolvedBy: uuid('resolved_by').references(() => users.id),
 }, (table) => [
   index('decisions_venture_id_idx').on(table.ventureId),
+  index('decisions_status_idx').on(table.status),
 ]);
 
 // ── Budget Entries (immutable — insert only) ───────────────
@@ -249,6 +257,7 @@ export const risks = pgTable('risks', {
 }, (table) => [
   index('risks_venture_id_idx').on(table.ventureId),
   index('risks_escalated_idx').on(table.escalated),
+  index('risks_status_idx').on(table.status),
 ]);
 
 // ── Issues ─────────────────────────────────────────────────
@@ -270,6 +279,7 @@ export const issues = pgTable('issues', {
 }, (table) => [
   index('issues_venture_id_idx').on(table.ventureId),
   index('issues_escalated_idx').on(table.escalated),
+  index('issues_status_idx').on(table.status),
 ]);
 
 // ── Task Dependencies ─────────────────────────────────────
