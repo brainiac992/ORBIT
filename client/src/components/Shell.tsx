@@ -1,5 +1,6 @@
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../lib/auth.js';
+import { trpc } from '../lib/trpc.js';
 
 const navItems: Record<string, { label: string; icon: string; path: string }[]> = {
   gm: [
@@ -16,6 +17,15 @@ const navItems: Record<string, { label: string; icon: string; path: string }[]> 
     { label: 'Activity', icon: '⏱', path: '/activity' },
   ],
 };
+
+const ventureTabs = [
+  { label: 'Plan', icon: '📋', suffix: 'plan' },
+  { label: 'Gantt', icon: '📐', suffix: 'gantt' },
+  { label: 'Resources', icon: '👥', suffix: 'resources' },
+  { label: 'Budget', icon: '💰', suffix: 'budget' },
+  { label: 'Progress', icon: '📈', suffix: 'progress' },
+  { label: 'Risks', icon: '⚡', suffix: 'risks' },
+];
 
 export function Shell() {
   const { user, setUser } = useAuth();
@@ -35,7 +45,7 @@ export function Shell() {
           <div className="text-[10px] text-[var(--text-3)] uppercase tracking-widest mt-0.5">ADRES PMO</div>
         </div>
 
-        <nav className="flex-1 px-3 py-4 space-y-1">
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
           {items.map(item => {
             const active = location.pathname === item.path || location.pathname.startsWith(item.path + '/');
             return (
@@ -54,8 +64,7 @@ export function Shell() {
             );
           })}
 
-          {/* Venture tabs for PM — shown when on a venture route */}
-          {user.role !== 'gm' && <VentureNav />}
+          {user.role !== 'gm' && <VenturesList />}
         </nav>
 
         <div className="px-3 py-4 border-t border-[var(--border)]">
@@ -85,42 +94,68 @@ export function Shell() {
   );
 }
 
-function VentureNav() {
+function VenturesList() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { user } = useAuth();
 
-  // Extract ventureId from URL
+  // PMO sees all ventures, PM sees their own via the pm dashboard query
+  const { data: pmoData } = trpc.dashboard.pmo.useQuery(undefined, { enabled: user?.role === 'pmo' });
+  const { data: pmData } = trpc.dashboard.pm.useQuery(undefined, { enabled: user?.role === 'pm' });
+
+  const ventures = user?.role === 'pmo'
+    ? (pmoData?.ventures ?? []).map(v => ({ id: v.id, name: v.name }))
+    : pmData?.venture
+      ? [{ id: pmData.venture.id, name: pmData.venture.name }]
+      : [];
+
+  if (ventures.length === 0) return null;
+
+  // Which venture is currently active in the URL?
   const match = location.pathname.match(/\/venture\/([^/]+)/);
-  const ventureId = match?.[1];
-  if (!ventureId) return null;
-
-  const tabs = [
-    { label: 'Plan', icon: '📋', path: `/venture/${ventureId}/plan` },
-    { label: 'Gantt', icon: '📐', path: `/venture/${ventureId}/gantt` },
-    { label: 'Resources', icon: '👥', path: `/venture/${ventureId}/resources` },
-    { label: 'Budget', icon: '💰', path: `/venture/${ventureId}/budget` },
-    { label: 'Progress', icon: '📈', path: `/venture/${ventureId}/progress` },
-    { label: 'Risks', icon: '⚡', path: `/venture/${ventureId}/risks` },
-  ];
+  const activeVentureId = match?.[1];
 
   return (
     <div className="mt-4 pt-4 border-t border-[var(--border)]">
-      <div className="px-3 mb-2 text-[10px] text-[var(--text-3)] uppercase tracking-widest">Venture</div>
-      {tabs.map(tab => {
-        const active = location.pathname === tab.path;
+      <div className="px-3 mb-2 text-[10px] text-[var(--text-3)] uppercase tracking-widest">Ventures</div>
+      {ventures.map(v => {
+        const isActive = v.id === activeVentureId;
         return (
-          <button
-            key={tab.path}
-            onClick={() => navigate(tab.path)}
-            className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all ${
-              active
-                ? 'bg-[var(--accent-dim)] text-[var(--accent-hover)] font-medium'
-                : 'text-[var(--text-2)] hover:text-[var(--text-0)] hover:bg-[var(--surface-1)]'
-            }`}
-          >
-            <span className="text-sm">{tab.icon}</span>
-            {tab.label}
-          </button>
+          <div key={v.id}>
+            <button
+              onClick={() => navigate(`/venture/${v.id}/plan`)}
+              className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm transition-all ${
+                isActive
+                  ? 'text-[var(--text-0)] font-medium'
+                  : 'text-[var(--text-2)] hover:text-[var(--text-0)] hover:bg-[var(--surface-1)]'
+              }`}
+            >
+              <span className={`text-[10px] transition-transform ${isActive ? 'rotate-90' : ''}`}>&#9654;</span>
+              <span className="truncate">{v.name}</span>
+            </button>
+            {isActive && (
+              <div className="ms-3 border-s border-[var(--border)] ps-1 mb-1">
+                {ventureTabs.map(tab => {
+                  const path = `/venture/${v.id}/${tab.suffix}`;
+                  const tabActive = location.pathname === path;
+                  return (
+                    <button
+                      key={tab.suffix}
+                      onClick={() => navigate(path)}
+                      className={`w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs transition-all ${
+                        tabActive
+                          ? 'bg-[var(--accent-dim)] text-[var(--accent-hover)] font-medium'
+                          : 'text-[var(--text-2)] hover:text-[var(--text-0)] hover:bg-[var(--surface-1)]'
+                      }`}
+                    >
+                      <span className="text-xs">{tab.icon}</span>
+                      {tab.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         );
       })}
     </div>
