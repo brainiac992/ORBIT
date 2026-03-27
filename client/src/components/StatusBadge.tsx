@@ -23,6 +23,7 @@ const statusConfig: Record<string, { bg: string; text: string; dot: string; labe
   rejected:      { bg: 'bg-red-500/15',     text: 'text-red-400',     dot: 'bg-red-400',     label: 'Rejected' },
   internal:      { bg: 'bg-indigo-500/15',  text: 'text-indigo-400',  dot: 'bg-indigo-400',  label: 'Internal' },
   external:      { bg: 'bg-purple-500/15',  text: 'text-purple-400',  dot: 'bg-purple-400',  label: 'External' },
+  blocker:       { bg: 'bg-red-700/20',     text: 'text-red-300',     dot: 'bg-red-700',     label: 'Blocker' },
 };
 
 export function StatusBadge({ status, size = 'sm' }: { status: string; size?: 'xs' | 'sm' }) {

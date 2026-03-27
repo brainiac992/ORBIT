@@ -4,7 +4,7 @@ import {
   progressUpdates,
   workstreamUpdates,
   milestoneCompletions,
-  blockers,
+  issues,
   decisions,
   ventures,
   workstreams,
@@ -98,14 +98,16 @@ export const progressRouter = router({
           }
         }
 
-        // Create blockers
+        // Create blocker issues
         if (input.blockersList?.length) {
-          await tx.insert(blockers).values(
+          await tx.insert(issues).values(
             input.blockersList.map(b => ({
-              progressUpdateId: update.id,
               ventureId: input.ventureId,
+              title: `Blocker: ${b.description.slice(0, 200)}`,
               description: b.description,
+              severity: 'blocker' as const,
               status: 'open' as const,
+              createdBy: ctx.user.id,
             }))
           );
         }

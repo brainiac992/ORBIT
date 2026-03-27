@@ -92,13 +92,11 @@ export function RisksPage() {
   const { data: summary } = trpc.risks.riskSummary.useQuery({ ventureId: ventureId! });
   const { data: heatmapData } = trpc.risks.heatmapData.useQuery({ ventureId: ventureId! });
   const { data: issuesList, isLoading: issuesLoading } = trpc.risks.listIssues.useQuery({ ventureId: ventureId! });
-  const { data: blockersList } = trpc.risks.listBlockers.useQuery({ ventureId: ventureId! });
   const { data: ventureResources } = trpc.raci.listVentureResources.useQuery({ ventureId: ventureId! });
 
   const [showRiskForm, setShowRiskForm] = useState(false);
   const [editingRisk, setEditingRisk] = useState<any>(null);
   const [showIssueForm, setShowIssueForm] = useState(false);
-  const [showBlockerForm, setShowBlockerForm] = useState(false);
   const [heatmapFilter, setHeatmapFilter] = useState<{ likelihood: number; impact: number } | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterOwner, setFilterOwner] = useState<string>('all');
@@ -150,8 +148,6 @@ export function RisksPage() {
 
   const openIssues = issuesList?.filter((i: any) => i.status !== 'resolved') ?? [];
   const resolvedIssues = issuesList?.filter((i: any) => i.status === 'resolved') ?? [];
-  const openBlockers = blockersList?.filter((b: any) => b.status === 'open') ?? [];
-  const resolvedBlockers = blockersList?.filter((b: any) => b.status === 'resolved') ?? [];
 
   const toggleSort = (field: string) => {
     if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -198,16 +194,16 @@ export function RisksPage() {
       )}
 
       {/* ── Heatmap ───────────────────────── */}
-      <div className="bg-[var(--surface-0)] rounded-2xl border border-[var(--border)] p-5 mb-6">
-        <div className="text-[10px] text-[var(--text-3)] uppercase tracking-widest mb-3">Risk Heatmap</div>
-        <div className="flex gap-4">
+      <div className="bg-[var(--surface-0)] rounded-2xl border border-[var(--border)] p-3 mb-6">
+        <div className="text-[9px] text-[var(--text-3)] uppercase tracking-widest mb-2">Risk Heatmap</div>
+        <div className="flex gap-2 max-w-md">
           {/* Y-axis label */}
           <div className="flex flex-col items-center justify-center">
-            <span className="text-[10px] text-[var(--text-3)] uppercase tracking-widest" style={{ writingMode: 'vertical-lr', transform: 'rotate(180deg)' }}>Likelihood</span>
+            <span className="text-[9px] text-[var(--text-3)] uppercase tracking-widest" style={{ writingMode: 'vertical-lr', transform: 'rotate(180deg)' }}>Likelihood</span>
           </div>
           <div className="flex-1">
             {/* Grid: 5 rows (likelihood 5 at top to 1 at bottom) x 5 columns (impact 1 to 5) */}
-            <div className="grid grid-cols-5 gap-1">
+            <div className="grid grid-cols-5 gap-0.5">
               {[5, 4, 3, 2, 1].map(likelihood => (
                 [1, 2, 3, 4, 5].map(impact => {
                   const key = `${likelihood}-${impact}`;
@@ -217,8 +213,8 @@ export function RisksPage() {
                     <button
                       key={key}
                       onClick={() => handleHeatmapClick(likelihood, impact)}
-                      className={`relative aspect-square rounded-lg flex items-center justify-center text-xs font-bold transition-all cursor-pointer ${isActive ? 'ring-2 ring-white ring-offset-1 ring-offset-[var(--bg)]' : 'hover:opacity-80'}`}
-                      style={{ backgroundColor: getHeatmapCellColor(likelihood, impact), opacity: isActive ? 1 : count > 0 ? 0.9 : 0.3 }}
+                      className={`relative rounded flex items-center justify-center text-[10px] font-bold transition-all cursor-pointer ${isActive ? 'ring-2 ring-white ring-offset-1 ring-offset-[var(--bg)]' : 'hover:opacity-80'}`}
+                      style={{ backgroundColor: getHeatmapCellColor(likelihood, impact), opacity: isActive ? 1 : count > 0 ? 0.9 : 0.3, height: '28px' }}
                       title={`L${likelihood} x I${impact} = ${likelihood * impact} | ${count} risk${count !== 1 ? 's' : ''}`}
                     >
                       {count > 0 && <span className="text-white drop-shadow-md">{count}</span>}
@@ -227,25 +223,25 @@ export function RisksPage() {
                 })
               ))}
             </div>
-            {/* Y-axis labels on left side */}
-            <div className="grid grid-cols-5 gap-1 mt-1">
+            {/* X-axis labels */}
+            <div className="grid grid-cols-5 gap-0.5 mt-0.5">
               {[1, 2, 3, 4, 5].map(impact => (
-                <div key={impact} className="text-center text-[10px] text-[var(--text-3)]">{impact} - {IMPACT_LABELS[impact]}</div>
+                <div key={impact} className="text-center text-[9px] text-[var(--text-3)] truncate">{impact}-{IMPACT_LABELS[impact]}</div>
               ))}
             </div>
-            <div className="text-center text-[10px] text-[var(--text-3)] uppercase tracking-widest mt-1">Impact</div>
+            <div className="text-center text-[9px] text-[var(--text-3)] uppercase tracking-widest mt-0.5">Impact</div>
           </div>
           {/* Y-axis labels */}
-          <div className="flex flex-col justify-between py-0.5" style={{ height: 'auto' }}>
+          <div className="flex flex-col justify-between py-0" style={{ height: 'auto' }}>
             {[5, 4, 3, 2, 1].map(l => (
-              <div key={l} className="text-[10px] text-[var(--text-3)] text-right leading-none flex items-center justify-end" style={{ flex: 1 }}>
-                {l} - {LIKELIHOOD_LABELS[l]}
+              <div key={l} className="text-[9px] text-[var(--text-3)] text-right leading-none flex items-center justify-end" style={{ flex: 1 }}>
+                {l}-{LIKELIHOOD_LABELS[l]}
               </div>
             ))}
           </div>
         </div>
         {heatmapFilter && (
-          <button onClick={() => setHeatmapFilter(null)} className="mt-3 text-xs text-[var(--accent-hover)] hover:underline cursor-pointer">
+          <button onClick={() => setHeatmapFilter(null)} className="mt-2 text-xs text-[var(--accent-hover)] hover:underline cursor-pointer">
             Clear heatmap filter (L:{heatmapFilter.likelihood} x I:{heatmapFilter.impact})
           </button>
         )}
@@ -362,33 +358,6 @@ export function RisksPage() {
         </details>
       )}
 
-      {/* ── Blockers ─────────────────────── */}
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-[var(--text-0)]">Blockers</h3>
-        {!isGM && <Button onClick={() => setShowBlockerForm(true)}>Add Blocker</Button>}
-      </div>
-
-      {openBlockers.length === 0 ? (
-        <p className="text-[var(--text-3)] mb-6">No open blockers.</p>
-      ) : (
-        <div className="space-y-3 mb-6">
-          {openBlockers.map((b: any) => (
-            <BlockerCard key={b.id} blocker={b} isGM={isGM} />
-          ))}
-        </div>
-      )}
-
-      {resolvedBlockers.length > 0 && (
-        <details>
-          <summary className="text-sm text-[var(--text-3)] cursor-pointer mb-2">Resolved Blockers ({resolvedBlockers.length})</summary>
-          <div className="space-y-2">
-            {resolvedBlockers.map((b: any) => (
-              <div key={b.id} className="bg-[var(--surface-1)] rounded-xl p-3 text-sm text-[var(--text-3)] line-through">{b.description}</div>
-            ))}
-          </div>
-        </details>
-      )}
-
       {/* ── Forms ────────────────────────── */}
       <RiskFormModal
         open={showRiskForm}
@@ -398,7 +367,6 @@ export function RisksPage() {
         resources={ventureResources ?? []}
       />
       <CreateIssueForm open={showIssueForm} onClose={() => setShowIssueForm(false)} ventureId={ventureId!} />
-      <CreateBlockerForm open={showBlockerForm} onClose={() => setShowBlockerForm(false)} ventureId={ventureId!} />
     </div>
   );
 }
@@ -686,34 +654,6 @@ function IssueCard({ issue, ventureId, isGM }: { issue: any; ventureId: string; 
   );
 }
 
-// ── Blocker Card ─────────────────────────────────
-
-function BlockerCard({ blocker, isGM }: { blocker: any; isGM: boolean }) {
-  const utils = trpc.useUtils();
-  const resolve = trpc.risks.resolveBlocker.useMutation({
-    onSuccess: () => {
-      utils.risks.listBlockers.invalidate();
-      utils.dashboard.pm.invalidate();
-    },
-  });
-
-  return (
-    <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-start gap-2">
-          <span className="text-amber-500 mt-0.5">●</span>
-          <span className="text-sm">{blocker.description}</span>
-        </div>
-        {!isGM && (
-          <Button variant="secondary" onClick={() => resolve.mutate({ id: blocker.id })}>
-            Resolve
-          </Button>
-        )}
-      </div>
-    </div>
-  );
-}
-
 // ── Create Issue Form ───────────────────────────
 
 function CreateIssueForm({ open, onClose, ventureId }: { open: boolean; onClose: () => void; ventureId: string }) {
@@ -735,7 +675,7 @@ function CreateIssueForm({ open, onClose, ventureId }: { open: boolean; onClose:
       <FormField label="Description"><TextArea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={2} placeholder="Describe the issue" /></FormField>
       <FormField label="Severity">
         <Select value={form.severity} onChange={e => setForm(f => ({ ...f, severity: e.target.value }))}>
-          <option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option>
+          <option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="blocker">Blocker</option>
         </Select>
       </FormField>
       <FormField label="Resolution Plan"><TextArea value={form.resolutionPlan} onChange={e => setForm(f => ({ ...f, resolutionPlan: e.target.value }))} rows={2} placeholder="How will this be resolved?" /></FormField>
@@ -748,32 +688,3 @@ function CreateIssueForm({ open, onClose, ventureId }: { open: boolean; onClose:
   );
 }
 
-// ── Create Blocker Form ─────────────────────────
-
-function CreateBlockerForm({ open, onClose, ventureId }: { open: boolean; onClose: () => void; ventureId: string }) {
-  const utils = trpc.useUtils();
-  const create = trpc.risks.createBlocker.useMutation({
-    onSuccess: () => { utils.risks.listBlockers.invalidate({ ventureId }); utils.dashboard.pm.invalidate(); onClose(); },
-  });
-  const [description, setDescription] = useState('');
-
-  const handleSubmit = () => {
-    if (!description.trim()) return;
-    create.mutate({ ventureId, description });
-    setDescription('');
-  };
-
-  return (
-    <Modal open={open} onClose={onClose} title="Add Blocker">
-      <FormField label="Description" required>
-        <TextArea value={description} onChange={e => setDescription(e.target.value)} rows={3} placeholder="What is blocking progress?" />
-      </FormField>
-      <div className="flex justify-end gap-2 mt-4">
-        <Button variant="secondary" onClick={onClose}>Cancel</Button>
-        <Button onClick={handleSubmit} disabled={create.isPending || !description.trim()}>
-          {create.isPending ? 'Saving...' : 'Add Blocker'}
-        </Button>
-      </div>
-    </Modal>
-  );
-}

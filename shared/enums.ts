@@ -24,7 +24,7 @@ export type BudgetEntryType = (typeof BUDGET_ENTRY_TYPE)[number];
 export const BUDGET_STATUS = ['within_budget', 'at_risk', 'over_budget'] as const;
 export type BudgetStatus = (typeof BUDGET_STATUS)[number];
 
-export const RISK_IMPACT = ['low', 'medium', 'high'] as const;
+export const RISK_IMPACT = ['low', 'medium', 'high', 'blocker'] as const;
 export type RiskImpact = (typeof RISK_IMPACT)[number];
 
 export const RACI_ROLE = ['responsible', 'accountable', 'consulted', 'informed'] as const;

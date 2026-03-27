@@ -1,7 +1,7 @@
 import { router, protectedProcedure, requireRole } from '../trpc.js';
 import { z } from 'zod';
 import {
-  ventures, users, risks, issues, blockers, decisions,
+  ventures, users, risks, issues, decisions,
   progressUpdates, budgetEntries, budgetForecasts, resourceAssignments, resources,
 } from '../db/schema.js';
 import { eq, ne, desc, inArray, and } from 'drizzle-orm';
@@ -162,7 +162,7 @@ export const dashboardRouter = router({
         ? await ctx.db.select().from(users).where(inArray(users.id, pmoPmIds))
         : [];
       const pmoUserMap = new Map(pmoUsers.map(u => [u.id, u]));
-      const allOpenBlockers = await ctx.db.select().from(blockers).where(eq(blockers.status, 'open'));
+      const allBlockerIssues = await ctx.db.select().from(issues).where(and(eq(issues.severity, 'blocker'), ne(issues.status, 'resolved')));
       const allOpenDecisions = await ctx.db.select().from(decisions).where(eq(decisions.status, 'open'));
       const allEscalatedRisks = await ctx.db.select().from(risks).where(eq(risks.escalated, true));
       const allEscalatedIssues = await ctx.db.select().from(issues).where(eq(issues.escalated, true));
@@ -219,7 +219,7 @@ export const dashboardRouter = router({
           issues: allEscalatedIssues,
         },
         openDecisions: allOpenDecisions,
-        openBlockers: allOpenBlockers,
+        openBlockers: allBlockerIssues,
         portfolioRiskSummary,
       };
     }),
@@ -244,10 +244,10 @@ export const dashboardRouter = router({
         .orderBy(desc(progressUpdates.submittedAt))
         .limit(1);
 
-      const openBlockersList = await ctx.db
+      const blockerIssuesList = await ctx.db
         .select()
-        .from(blockers)
-        .where(eq(blockers.ventureId, venture.id));
+        .from(issues)
+        .where(and(eq(issues.ventureId, venture.id), eq(issues.severity, 'blocker'), ne(issues.status, 'resolved')));
 
       const openRisksList = await ctx.db
         .select()
@@ -259,7 +259,7 @@ export const dashboardRouter = router({
       return {
         venture,
         latestUpdate: latestUpdate ?? null,
-        openBlockersCount: openBlockersList.filter(b => b.status === 'open').length,
+        openBlockersCount: blockerIssuesList.length,
         openRisksCount: openRisksList.filter(r => r.status === 'open').length,
         topRiskScore: riskSummary.topRiskScore,
         weightedExposure: riskSummary.weightedExposure,

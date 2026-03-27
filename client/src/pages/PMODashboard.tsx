@@ -6,7 +6,7 @@ import { Modal, FormField, Input, TextArea, Select, Button } from '../components
 import { useExportPortfolio } from '../hooks/useExport.js';
 import { formatDate, daysSince } from '../lib/format.js';
 
-type Tab = 'ventures' | 'escalations' | 'decisions' | 'blockers' | 'resources';
+type Tab = 'ventures' | 'escalations' | 'decisions' | 'resources';
 
 export function PMODashboard() {
   const [activeTab, setActiveTab] = useState<Tab>('ventures');
@@ -27,7 +27,6 @@ export function PMODashboard() {
     { id: 'ventures', label: 'Ventures' },
     { id: 'escalations', label: 'Escalations', badge: escalationCount || undefined },
     { id: 'decisions', label: 'Decisions', badge: decisionCount || undefined },
-    { id: 'blockers', label: 'Blockers', badge: blockerCount || undefined },
     { id: 'resources', label: 'Resources' },
   ];
 
@@ -45,7 +44,7 @@ export function PMODashboard() {
         <KpiCard label="Active Ventures" value={data.ventures.length} />
         <KpiCard label="Escalations" value={escalationCount} accent={escalationCount > 0 ? 'text-red-400' : 'text-emerald-400'} />
         <KpiCard label="Decisions Pending" value={decisionCount} accent={decisionCount > 0 ? 'text-amber-400' : 'text-emerald-400'} />
-        <KpiCard label="Open Blockers" value={blockerCount} accent={blockerCount > 0 ? 'text-red-400' : 'text-emerald-400'} />
+        <KpiCard label="Blocking Issues" value={blockerCount} accent={blockerCount > 0 ? 'text-red-400' : 'text-emerald-400'} />
       </div>
 
       <div className="flex gap-1 mb-6 bg-[var(--surface-0)] rounded-xl p-1 border border-[var(--border)] no-print">
@@ -72,7 +71,6 @@ export function PMODashboard() {
       {activeTab === 'ventures' && <VenturesTable ventures={data.ventures} onSelect={id => navigate(`/venture/${id}/plan`)} />}
       {activeTab === 'escalations' && <EscalationsPanel data={data.escalations} />}
       {activeTab === 'decisions' && <DecisionsPanel items={data.openDecisions} />}
-      {activeTab === 'blockers' && <BlockersPanel items={data.openBlockers} />}
       {activeTab === 'resources' && <ResourcesPanel />}
 
       <CreateVentureForm open={showCreateVenture} onClose={() => setShowCreateVenture(false)} />
@@ -162,28 +160,6 @@ function DecisionsPanel({ items }: { items: any[] }) {
             <p className="text-xs text-[var(--text-3)] mt-0.5">Logged {formatDate(d.createdAt)}</p>
           </div>
           <Button variant="secondary" onClick={() => resolve.mutate({ id: d.id })}>Resolve</Button>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function BlockersPanel({ items }: { items: any[] }) {
-  const utils = trpc.useUtils();
-  const resolve = trpc.risks.resolveBlocker.useMutation({ onSuccess: () => utils.dashboard.pmo.invalidate() });
-  if (items.length === 0) return <EmptyState icon="✅" text="No open blockers." />;
-  return (
-    <div className="space-y-3">
-      {items.map((b: any, i: number) => (
-        <div key={b.id} className="bg-[var(--surface-0)] rounded-xl border border-[var(--border)] p-4 flex items-center justify-between animate-in" style={{ animationDelay: `${i * 30}ms` }}>
-          <div className="flex items-start gap-2">
-            <span className="text-amber-400 mt-0.5">●</span>
-            <div>
-              <span className="text-sm text-[var(--text-1)]">{b.description}</span>
-              <p className="text-xs text-[var(--text-3)] mt-0.5">Logged {formatDate(b.createdAt)}</p>
-            </div>
-          </div>
-          <Button variant="secondary" onClick={() => resolve.mutate({ id: b.id })}>Resolve</Button>
         </div>
       ))}
     </div>

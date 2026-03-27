@@ -159,8 +159,8 @@ export function WeeklyUpdatePage() {
         </FormSection>
       )}
 
-      {/* Blockers */}
-      <FormSection title="Blockers">
+      {/* Blocking Issues */}
+      <FormSection title="Blocking Issues">
         {blockersList.map((b, i) => (
           <div key={i} className="flex gap-2 mb-2">
             <span className="text-sm py-2 px-3 bg-[var(--surface-0)] rounded-lg flex-1">{b}</span>
@@ -170,7 +170,7 @@ export function WeeklyUpdatePage() {
           <input
             value={newBlocker}
             onChange={e => setNewBlocker(e.target.value)}
-            placeholder="Describe a blocker"
+            placeholder="Describe a blocking issue"
             className="flex-1 border border-[var(--border)] bg-[var(--surface-1)] rounded-lg px-3 py-2 text-sm"
             onKeyDown={e => {
               if (e.key === 'Enter' && newBlocker.trim()) {

@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { router, protectedProcedure, requireRole } from '../trpc.js';
-import { risks, issues, ventures, blockers, decisions, resources } from '../db/schema.js';
+import { risks, issues, ventures, decisions, resources } from '../db/schema.js';
 import { eq, and } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { RAG_RATING, RISK_STATUS, RISK_IMPACT, ISSUE_STATUS } from '../../shared/enums.js';
@@ -345,76 +345,7 @@ export const risksRouter = router({
         .where(eq(decisions.status, 'open'));
     }),
 
-  // ── Create standalone blocker ───────────────────
-
-  createBlocker: protectedProcedure
-    .input(z.object({
-      ventureId: z.string().uuid(),
-      description: z.string().min(1),
-    }))
-    .mutation(async ({ ctx, input }) => {
-      await assertVentureReadAccess(ctx, input.ventureId);
-      if (ctx.user.role === 'gm') throw new TRPCError({ code: 'FORBIDDEN' });
-
-      // Create blocker without a progress update link
-      const [blocker] = await ctx.db.insert(blockers).values({
-        progressUpdateId: null,
-        ventureId: input.ventureId,
-        description: input.description,
-        status: 'open',
-      }).returning();
-
-      await logAudit(ctx.db, {
-        entityType: 'blocker', entityId: blocker.id, ventureId: input.ventureId,
-        action: 'created', changedBy: ctx.user.id,
-      });
-
-      return blocker;
-    }),
-
-  // ── Per-venture blockers ────────────────────────
-
-  listBlockers: protectedProcedure
-    .input(z.object({ ventureId: z.string().uuid() }))
-    .query(async ({ ctx, input }) => {
-      await assertVentureReadAccess(ctx, input.ventureId);
-      return ctx.db.select().from(blockers).where(eq(blockers.ventureId, input.ventureId));
-    }),
-
-  // ── Cross-venture blockers ─────────────────────
-
-  allOpenBlockers: protectedProcedure
-    .use(requireRole('pmo'))
-    .query(async ({ ctx }) => {
-      return ctx.db
-        .select()
-        .from(blockers)
-        .where(eq(blockers.status, 'open'));
-    }),
-
-  // ── Resolve blocker / decision ─────────────────
-
-  resolveBlocker: protectedProcedure
-    .input(z.object({ id: z.string().uuid() }))
-    .mutation(async ({ ctx, input }) => {
-      if (ctx.user.role === 'gm') throw new TRPCError({ code: 'FORBIDDEN' });
-      const [blocker] = await ctx.db.select().from(blockers).where(eq(blockers.id, input.id)).limit(1);
-      if (!blocker) throw new TRPCError({ code: 'NOT_FOUND' });
-      await assertVentureReadAccess(ctx, blocker.ventureId);
-
-      const [updated] = await ctx.db.update(blockers).set({
-        status: 'resolved',
-        resolvedAt: new Date(),
-        resolvedBy: ctx.user.id,
-      }).where(eq(blockers.id, input.id)).returning();
-
-      await logAudit(ctx.db, {
-        entityType: 'blocker', entityId: input.id, ventureId: blocker.ventureId,
-        action: 'resolved', changedBy: ctx.user.id,
-      });
-
-      return updated;
-    }),
+  // ── Resolve decision ────────────────────────────
 
   resolveDecision: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
