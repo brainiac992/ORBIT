@@ -38,6 +38,15 @@ export const exportRouter = router({
         : [];
 
       const ventureRisks = await ctx.db.select().from(risks).where(eq(risks.ventureId, input.ventureId));
+
+      // Resolve risk owner names
+      const riskOwnerIds = [...new Set(ventureRisks.map(r => r.ownerResourceId).filter((id): id is string => id != null))];
+      let riskOwnerMap = new Map<string, string>();
+      if (riskOwnerIds.length > 0) {
+        const ownerResources = await ctx.db.select({ id: resources.id, name: resources.name }).from(resources).where(inArray(resources.id, riskOwnerIds));
+        riskOwnerMap = new Map(ownerResources.map(r => [r.id, r.name]));
+      }
+
       const ventureIssues = await ctx.db.select().from(issues).where(eq(issues.ventureId, input.ventureId));
 
       // Budget summary
@@ -74,7 +83,10 @@ export const exportRouter = router({
           ...ws,
           milestones: allMilestones.filter(m => m.workstreamId === ws.id),
         })),
-        risks: ventureRisks,
+        risks: ventureRisks.map(r => ({
+          ...r,
+          ownerName: r.ownerResourceId ? riskOwnerMap.get(r.ownerResourceId) ?? null : null,
+        })),
         issues: ventureIssues,
         budget: {
           approvedBudget: Number(venture.approvedBudget || 0),

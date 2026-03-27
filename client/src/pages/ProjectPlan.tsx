@@ -1,17 +1,32 @@
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { trpc } from '../lib/trpc.js';
 import { StatusBadge, SectionHeader } from '../components/StatusBadge.js';
 import { Modal, FormField, Input, Select, Button } from '../components/Modal.js';
 import { useAuth } from '../lib/auth.js';
 import { formatDate } from '../lib/format.js';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 
 export function ProjectPlanPage() {
   const { ventureId } = useParams<{ ventureId: string }>();
   const { user } = useAuth();
   const { data: workstreams, isLoading } = trpc.workstreams.list.useQuery({ ventureId: ventureId! });
+  const { data: raciAssignments } = trpc.raci.listForVenture.useQuery({ ventureId: ventureId! });
   const [showAddWs, setShowAddWs] = useState(false);
   const isGM = user?.role === 'gm';
+
+  // Build RACI lookup: workstreamId -> role -> resourceName[]
+  const raciByWs = useMemo(() => {
+    const map = new Map<string, Map<string, string[]>>();
+    if (raciAssignments) {
+      for (const a of raciAssignments as any[]) {
+        if (!map.has(a.workstreamId)) map.set(a.workstreamId, new Map());
+        const roleMap = map.get(a.workstreamId)!;
+        if (!roleMap.has(a.raciRole)) roleMap.set(a.raciRole, []);
+        roleMap.get(a.raciRole)!.push(a.resourceName);
+      }
+    }
+    return map;
+  }, [raciAssignments]);
 
   if (isLoading) return <div className="p-8 text-[var(--text-3)]">Loading plan...</div>;
 
@@ -30,7 +45,7 @@ export function ProjectPlanPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {workstreams.map(ws => <WorkstreamRow key={ws.id} workstream={ws} ventureId={ventureId!} isGM={isGM} />)}
+          {workstreams.map(ws => <WorkstreamRow key={ws.id} workstream={ws} ventureId={ventureId!} isGM={isGM} raciMap={raciByWs.get(ws.id)} />)}
         </div>
       )}
 
@@ -39,10 +54,11 @@ export function ProjectPlanPage() {
   );
 }
 
-function WorkstreamRow({ workstream, ventureId, isGM }: { workstream: any; ventureId: string; isGM: boolean }) {
+function WorkstreamRow({ workstream, ventureId, isGM, raciMap }: { workstream: any; ventureId: string; isGM: boolean; raciMap?: Map<string, string[]> }) {
   const [expanded, setExpanded] = useState(false);
   const [showAddMs, setShowAddMs] = useState(false);
   const [editing, setEditing] = useState(false);
+  const navigate = useNavigate();
   const utils = trpc.useUtils();
   const { data: milestones } = trpc.milestones.list.useQuery({ workstreamId: workstream.id }, { enabled: expanded });
   const updateWs = trpc.workstreams.update.useMutation({ onSuccess: () => { utils.workstreams.list.invalidate({ ventureId }); setEditing(false); } });
@@ -53,6 +69,16 @@ function WorkstreamRow({ workstream, ventureId, isGM }: { workstream: any; ventu
     actualStart: workstream.actualStart ?? '',
     actualEnd: workstream.actualEnd ?? '',
   });
+
+  const raciColors: Record<string, string> = {
+    responsible: 'text-indigo-400',
+    accountable: 'text-red-400',
+    consulted: 'text-amber-400',
+    informed: 'text-gray-400',
+  };
+  const raciShort: Record<string, string> = { responsible: 'R', accountable: 'A', consulted: 'C', informed: 'I' };
+
+  const hasRaci = raciMap && raciMap.size > 0;
 
   return (
     <div className="bg-[var(--surface-0)] rounded-2xl border border-[var(--border)] overflow-hidden hover:border-[var(--border-hover)] transition-all">
@@ -67,6 +93,26 @@ function WorkstreamRow({ workstream, ventureId, isGM }: { workstream: any; ventu
             Baseline: {formatDate(workstream.baselineStart)} → {formatDate(workstream.baselineEnd)}
             {workstream.actualStart && <span className="ms-3">Actual: {formatDate(workstream.actualStart)} → {workstream.actualEnd ? formatDate(workstream.actualEnd) : 'ongoing'}</span>}
           </div>
+          {hasRaci && (
+            <div className="flex flex-wrap gap-2 mt-1">
+              {['responsible', 'accountable', 'consulted', 'informed'].map(role => {
+                const names = raciMap!.get(role);
+                if (!names || names.length === 0) return null;
+                const display = names.length <= 2 ? names.join(', ') : `${names.slice(0, 2).join(', ')} +${names.length - 2}`;
+                return (
+                  <span key={role} className={`text-[10px] ${raciColors[role]}`}>
+                    <span className="font-bold">{raciShort[role]}:</span> {display}
+                  </span>
+                );
+              })}
+              <button
+                onClick={e => { e.stopPropagation(); navigate(`/venture/${ventureId}/raci`); }}
+                className="text-[10px] text-[var(--accent-hover)] hover:underline cursor-pointer"
+              >
+                RACI
+              </button>
+            </div>
+          )}
         </div>
         <StatusBadge status={workstream.status} />
         <div className="flex items-center gap-2 min-w-[80px]">

@@ -36,6 +36,13 @@
   /* Border */
   --border: rgba(255, 255, 255, 0.08);
   --border-hover: rgba(255, 255, 255, 0.15);
+
+  /* Risk score heatmap bands */
+  --risk-green: #10B981;
+  --risk-yellow: #EAB308;
+  --risk-amber: #F59E0B;
+  --risk-red: #EF4444;
+  --risk-dark-red: #DC2626;
 }
 
 * { box-sizing: border-box; }

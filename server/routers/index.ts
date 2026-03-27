@@ -13,6 +13,7 @@ import { approvalsRouter } from './approvals.js';
 import { exportRouter } from './export.js';
 import { ganttRouter } from './gantt.js';
 import { configRouter } from './config.js';
+import { raciRouter } from './raci.js';
 
 export const appRouter = router({
   ventures: venturesRouter,
@@ -29,6 +30,7 @@ export const appRouter = router({
   export: exportRouter,
   gantt: ganttRouter,
   config: configRouter,
+  raci: raciRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -21,6 +21,7 @@ const navItems: Record<string, { label: string; icon: string; path: string }[]> 
 
 const ventureTabs = [
   { label: 'Plan', icon: '📋', suffix: 'plan' },
+  { label: 'RACI', icon: '👤', suffix: 'raci' },
   { label: 'Gantt', icon: '📐', suffix: 'gantt' },
   { label: 'Resources', icon: '👥', suffix: 'resources' },
   { label: 'Budget', icon: '💰', suffix: 'budget' },

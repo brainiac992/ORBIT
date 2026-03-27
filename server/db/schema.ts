@@ -10,6 +10,7 @@ import {
   timestamp,
   pgEnum,
   index,
+  uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
 // ── Enums ──────────────────────────────────────────────────
@@ -22,8 +23,8 @@ export const milestoneStatusEnum = pgEnum('milestone_status', ['upcoming', 'achi
 export const resourceTypeEnum = pgEnum('resource_type', ['internal', 'external']);
 export const budgetCategoryEnum = pgEnum('budget_category', ['people', 'technology', 'vendors', 'other']);
 export const budgetEntryTypeEnum = pgEnum('budget_entry_type', ['actual', 'committed', 'correction']);
-export const riskProbabilityEnum = pgEnum('risk_probability', ['low', 'medium', 'high']);
 export const riskImpactEnum = pgEnum('risk_impact', ['low', 'medium', 'high']);
+export const raciRoleEnum = pgEnum('raci_role', ['responsible', 'accountable', 'consulted', 'informed']);
 export const ragRatingEnum = pgEnum('rag_rating', ['green', 'amber', 'red']);
 export const riskStatusEnum = pgEnum('risk_status', ['open', 'mitigated', 'closed']);
 export const issueStatusEnum = pgEnum('issue_status', ['open', 'in_progress', 'resolved']);
@@ -243,12 +244,16 @@ export const risks = pgTable('risks', {
   ventureId: uuid('venture_id').references(() => ventures.id).notNull(),
   title: varchar('title', { length: 255 }).notNull(),
   description: text('description'),
-  probability: riskProbabilityEnum('probability').notNull(),
-  impact: riskImpactEnum('impact').notNull(),
+  likelihood: integer('likelihood').notNull(),                // 1-5
+  impact: integer('impact').notNull(),                        // 1-5
+  riskScore: integer('risk_score').notNull(),                  // 1-25, persisted
+  weight: integer('weight').notNull().default(3),              // 1-5
   rag: ragRatingEnum('rag').notNull(),
   ragOverride: boolean('rag_override').default(false).notNull(),
   mitigationPlan: text('mitigation_plan'),
-  owner: varchar('owner', { length: 255 }),
+  ownerResourceId: uuid('owner_resource_id').references(() => resources.id),
+  escalationPath: text('escalation_path'),
+  legacyOwnerText: varchar('legacy_owner_text', { length: 255 }),
   status: riskStatusEnum('status').default('open').notNull(),
   escalated: boolean('escalated').default(false).notNull(),
   createdBy: uuid('created_by').references(() => users.id).notNull(),
@@ -258,6 +263,8 @@ export const risks = pgTable('risks', {
   index('risks_venture_id_idx').on(table.ventureId),
   index('risks_escalated_idx').on(table.escalated),
   index('risks_status_idx').on(table.status),
+  index('risks_risk_score_idx').on(table.riskScore),
+  index('risks_owner_resource_id_idx').on(table.ownerResourceId),
 ]);
 
 // ── Issues ─────────────────────────────────────────────────
@@ -350,4 +357,20 @@ export const approvals = pgTable('approvals', {
 }, (table) => [
   index('approvals_venture_id_idx').on(table.ventureId),
   index('approvals_status_idx').on(table.status),
+]);
+
+// ── Workstream RACI Assignments ──────────────────────────
+
+export const workstreamRaciAssignments = pgTable('workstream_raci_assignments', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  workstreamId: uuid('workstream_id').references(() => workstreams.id, { onDelete: 'cascade' }).notNull(),
+  resourceId: uuid('resource_id').references(() => resources.id, { onDelete: 'cascade' }).notNull(),
+  raciRole: raciRoleEnum('raci_role').notNull(),
+  createdBy: uuid('created_by').references(() => users.id).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index('raci_workstream_id_idx').on(table.workstreamId),
+  index('raci_resource_id_idx').on(table.resourceId),
+  uniqueIndex('raci_ws_resource_role_idx').on(table.workstreamId, table.resourceId, table.raciRole),
 ]);

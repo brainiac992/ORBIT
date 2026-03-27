@@ -13,6 +13,7 @@ import { GanttPage } from './pages/GanttPage.js';
 import { BudgetPage } from './pages/BudgetPage.js';
 import { ProgressPage } from './pages/ProgressPage.js';
 import { RisksPage } from './pages/RisksPage.js';
+import { RaciPage } from './pages/RaciPage.js';
 import { ResourcesPage } from './pages/ResourcesPage.js';
 import { WeeklyUpdatePage } from './pages/WeeklyUpdate.js';
 import { ActivityPage } from './pages/ActivityPage.js';
@@ -42,6 +43,7 @@ function AppInner() {
         <Route path="/venture/:ventureId/budget" element={<BudgetPage />} />
         <Route path="/venture/:ventureId/progress" element={<ProgressPage />} />
         <Route path="/venture/:ventureId/risks" element={<RisksPage />} />
+        <Route path="/venture/:ventureId/raci" element={<RaciPage />} />
         <Route path="/venture/:ventureId/resources" element={<ResourcesPage />} />
         <Route path="/venture/:ventureId/update" element={<WeeklyUpdatePage />} />
         <Route path="/activity" element={user?.role !== 'gm' ? <ActivityPage /> : <RoleRedirect />} />

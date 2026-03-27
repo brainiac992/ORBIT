@@ -1,9 +1,9 @@
 import { z } from 'zod';
 import { router, protectedProcedure, requireRole } from '../trpc.js';
-import { risks, issues, ventures, blockers, decisions } from '../db/schema.js';
+import { risks, issues, ventures, blockers, decisions, resources } from '../db/schema.js';
 import { eq, and } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
-import { RISK_PROBABILITY, RISK_IMPACT, RAG_RATING, RISK_STATUS, ISSUE_STATUS } from '../../shared/enums.js';
+import { RAG_RATING, RISK_STATUS, RISK_IMPACT, ISSUE_STATUS } from '../../shared/enums.js';
 import { deriveRag } from '../../shared/enums.js';
 import { logAudit, logAuditDiff } from '../services/audit.js';
 
@@ -16,6 +16,14 @@ async function assertVentureReadAccess(ctx: any, ventureId: string) {
   return venture;
 }
 
+function getScoreBand(score: number): string {
+  if (score <= 4) return 'green';
+  if (score <= 8) return 'yellow';
+  if (score <= 12) return 'amber';
+  if (score <= 19) return 'red';
+  return 'darkRed';
+}
+
 export const risksRouter = router({
   // ── Risks ──────────────────────────────────────
 
@@ -23,29 +31,57 @@ export const risksRouter = router({
     .input(z.object({ ventureId: z.string().uuid() }))
     .query(async ({ ctx, input }) => {
       await assertVentureReadAccess(ctx, input.ventureId);
-      return ctx.db.select().from(risks).where(eq(risks.ventureId, input.ventureId));
+      const ventureRisks = await ctx.db.select().from(risks).where(eq(risks.ventureId, input.ventureId));
+
+      // Resolve owner resource names
+      const ownerIds = [...new Set(ventureRisks.map(r => r.ownerResourceId).filter((id): id is string => id != null))];
+      let resourceMap = new Map<string, string>();
+      if (ownerIds.length > 0) {
+        const { inArray } = await import('drizzle-orm');
+        const ownerResources = await ctx.db.select({ id: resources.id, name: resources.name }).from(resources).where(inArray(resources.id, ownerIds));
+        resourceMap = new Map(ownerResources.map(r => [r.id, r.name]));
+      }
+
+      return ventureRisks.map(r => ({
+        ...r,
+        ownerName: r.ownerResourceId ? resourceMap.get(r.ownerResourceId) ?? null : null,
+      }));
     }),
 
   createRisk: protectedProcedure
     .input(z.object({
       ventureId: z.string().uuid(),
       title: z.string().min(1).max(255),
-      description: z.string().optional(),
-      probability: z.enum(RISK_PROBABILITY),
-      impact: z.enum(RISK_IMPACT),
+      description: z.string().max(5000).optional(),
+      likelihood: z.number().int().min(1).max(5),
+      impact: z.number().int().min(1).max(5),
+      weight: z.number().int().min(1).max(5).default(3),
       rag: z.enum(RAG_RATING).optional(),
-      mitigationPlan: z.string().optional(),
-      owner: z.string().max(255).optional(),
+      mitigationPlan: z.string().max(5000).optional(),
+      ownerResourceId: z.string().uuid().nullable().optional(),
+      escalationPath: z.string().max(2000).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       await assertVentureReadAccess(ctx, input.ventureId);
       if (ctx.user.role === 'gm') throw new TRPCError({ code: 'FORBIDDEN' });
 
-      const rag = input.rag ?? deriveRag(input.probability, input.impact);
+      const riskScore = input.likelihood * input.impact;
+      const rag = input.rag ?? deriveRag(input.likelihood, input.impact);
+      const ragOverride = !!input.rag;
+
       const [risk] = await ctx.db.insert(risks).values({
-        ...input,
+        ventureId: input.ventureId,
+        title: input.title,
+        description: input.description,
+        likelihood: input.likelihood,
+        impact: input.impact,
+        riskScore,
+        weight: input.weight,
         rag,
-        ragOverride: !!input.rag,
+        ragOverride,
+        mitigationPlan: input.mitigationPlan,
+        ownerResourceId: input.ownerResourceId ?? null,
+        escalationPath: input.escalationPath,
         createdBy: ctx.user.id,
       }).returning();
 
@@ -60,12 +96,17 @@ export const risksRouter = router({
   updateRisk: protectedProcedure
     .input(z.object({
       id: z.string().uuid(),
-      status: z.enum(RISK_STATUS).optional(),
-      probability: z.enum(RISK_PROBABILITY).optional(),
-      impact: z.enum(RISK_IMPACT).optional(),
+      title: z.string().min(1).max(255).optional(),
+      description: z.string().max(5000).optional(),
+      likelihood: z.number().int().min(1).max(5).optional(),
+      impact: z.number().int().min(1).max(5).optional(),
+      weight: z.number().int().min(1).max(5).optional(),
       rag: z.enum(RAG_RATING).optional(),
-      mitigationPlan: z.string().optional(),
-      owner: z.string().max(255).optional(),
+      ragOverride: z.boolean().optional(),
+      mitigationPlan: z.string().max(5000).optional(),
+      ownerResourceId: z.string().uuid().nullable().optional(),
+      escalationPath: z.string().max(2000).optional(),
+      status: z.enum(RISK_STATUS).optional(),
       escalated: z.boolean().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
@@ -75,18 +116,54 @@ export const risksRouter = router({
       await assertVentureReadAccess(ctx, risk.ventureId);
       if (ctx.user.role === 'gm') throw new TRPCError({ code: 'FORBIDDEN' });
 
-      // Recalculate RAG if probability or impact changed
-      let rag = updates.rag;
-      let ragOverride = risk.ragOverride;
-      if ((updates.probability || updates.impact) && !updates.rag) {
-        rag = deriveRag(updates.probability ?? risk.probability, updates.impact ?? risk.impact);
-        ragOverride = false;
-      } else if (updates.rag) {
-        ragOverride = true;
+      // HIGH-06 fix: require rag value when enabling override
+      if (updates.ragOverride === true && !updates.rag) {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'RAG value required when enabling override' });
       }
 
+      // Determine effective likelihood and impact
+      const newLikelihood = updates.likelihood ?? risk.likelihood;
+      const newImpact = updates.impact ?? risk.impact;
+      const scoreChanged = updates.likelihood !== undefined || updates.impact !== undefined;
+
+      // Compute risk score
+      let riskScore = risk.riskScore;
+      if (scoreChanged) {
+        riskScore = newLikelihood * newImpact;
+      }
+
+      // Determine RAG and ragOverride
+      let rag = risk.rag;
+      let ragOverride = risk.ragOverride;
+
+      if (updates.rag) {
+        // Explicit RAG provided — override
+        rag = updates.rag;
+        ragOverride = true;
+      } else if (updates.ragOverride === false) {
+        // Explicitly turning off override — auto-derive
+        rag = deriveRag(newLikelihood, newImpact);
+        ragOverride = false;
+      } else if (scoreChanged && !risk.ragOverride) {
+        // Score changed and no override — auto-derive
+        rag = deriveRag(newLikelihood, newImpact);
+        ragOverride = false;
+      }
+
+      // CRITICAL-03 fix: only include explicitly provided fields, filter out undefined
+      const cleanUpdates = Object.fromEntries(
+        Object.entries(updates).filter(([_, v]) => v !== undefined)
+      );
+      const setValues: Record<string, any> = {
+        ...cleanUpdates,
+        riskScore,
+        rag,
+        ragOverride,
+        updatedAt: new Date(),
+      };
+
       const [updated] = await ctx.db.update(risks)
-        .set({ ...updates, rag, ragOverride, updatedAt: new Date() })
+        .set(setValues)
         .where(eq(risks.id, id))
         .returning();
 
@@ -110,6 +187,60 @@ export const risksRouter = router({
       }
 
       return updated;
+    }),
+
+  heatmapData: protectedProcedure
+    .input(z.object({ ventureId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      await assertVentureReadAccess(ctx, input.ventureId);
+      const ventureRisks = await ctx.db.select().from(risks).where(
+        and(eq(risks.ventureId, input.ventureId), eq(risks.status, 'open'))
+      );
+
+      // Group by likelihood/impact
+      const cellMap = new Map<string, { likelihood: number; impact: number; count: number; risks: { id: string; title: string; riskScore: number }[] }>();
+      for (const r of ventureRisks) {
+        const key = `${r.likelihood}-${r.impact}`;
+        if (!cellMap.has(key)) {
+          cellMap.set(key, { likelihood: r.likelihood, impact: r.impact, count: 0, risks: [] });
+        }
+        const cell = cellMap.get(key)!;
+        cell.count++;
+        cell.risks.push({ id: r.id, title: r.title, riskScore: r.riskScore });
+      }
+
+      return Array.from(cellMap.values());
+    }),
+
+  riskSummary: protectedProcedure
+    .input(z.object({ ventureId: z.string().uuid() }))
+    .query(async ({ ctx, input }) => {
+      await assertVentureReadAccess(ctx, input.ventureId);
+      const openRisks = await ctx.db.select().from(risks).where(
+        and(eq(risks.ventureId, input.ventureId), eq(risks.status, 'open'))
+      );
+
+      const countByBand = { green: 0, yellow: 0, amber: 0, red: 0, darkRed: 0 };
+      let highestScore = 0;
+      let sumScoreWeight = 0;
+      let sumWeight = 0;
+
+      for (const r of openRisks) {
+        const band = getScoreBand(r.riskScore);
+        countByBand[band as keyof typeof countByBand]++;
+        if (r.riskScore > highestScore) highestScore = r.riskScore;
+        sumScoreWeight += r.riskScore * r.weight;
+        sumWeight += r.weight;
+      }
+
+      const weightedExposure = sumWeight > 0 ? Math.round((sumScoreWeight / sumWeight) * 100) / 100 : 0;
+
+      return {
+        highestScore,
+        weightedExposure,
+        countByBand,
+        totalOpen: openRisks.length,
+      };
     }),
 
   // ── Issues ─────────────────────────────────────
@@ -227,11 +358,16 @@ export const risksRouter = router({
 
       // Create blocker without a progress update link
       const [blocker] = await ctx.db.insert(blockers).values({
-        progressUpdateId: null as any, // standalone blocker
+        progressUpdateId: null,
         ventureId: input.ventureId,
         description: input.description,
         status: 'open',
       }).returning();
+
+      await logAudit(ctx.db, {
+        entityType: 'blocker', entityId: blocker.id, ventureId: input.ventureId,
+        action: 'created', changedBy: ctx.user.id,
+      });
 
       return blocker;
     }),
@@ -271,6 +407,12 @@ export const risksRouter = router({
         resolvedAt: new Date(),
         resolvedBy: ctx.user.id,
       }).where(eq(blockers.id, input.id)).returning();
+
+      await logAudit(ctx.db, {
+        entityType: 'blocker', entityId: input.id, ventureId: blocker.ventureId,
+        action: 'resolved', changedBy: ctx.user.id,
+      });
+
       return updated;
     }),
 
@@ -287,6 +429,12 @@ export const risksRouter = router({
         resolvedAt: new Date(),
         resolvedBy: ctx.user.id,
       }).where(eq(decisions.id, input.id)).returning();
+
+      await logAudit(ctx.db, {
+        entityType: 'decision', entityId: input.id, ventureId: decision.ventureId,
+        action: 'resolved', changedBy: ctx.user.id,
+      });
+
       return updated;
     }),
 });
