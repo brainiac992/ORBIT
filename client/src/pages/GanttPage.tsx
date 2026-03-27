@@ -6,6 +6,7 @@ export function GanttPage() {
   const { ventureId } = useParams<{ ventureId: string }>();
   const { data, isLoading, error } = trpc.gantt.data.useQuery({ ventureId: ventureId! });
   const [zoom, setZoom] = useState<'week' | 'month'>('week');
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
 
   const periods = useMemo(() => {
     if (!data) return [];
@@ -53,6 +54,10 @@ export function GanttPage() {
   const today = new Date();
   const todayOffset = Math.ceil((today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
 
+  const toggleCollapse = (wsId: string) => {
+    setCollapsed(prev => ({ ...prev, [wsId]: !prev[wsId] }));
+  };
+
   const barColor: Record<string, string> = {
     not_started: 'bg-gray-500/50',
     in_progress: 'bg-indigo-500',
@@ -65,6 +70,18 @@ export function GanttPage() {
     achieved: 'bg-emerald-400',
     overdue: 'bg-amber-400',
     deferred: 'bg-gray-500',
+  };
+
+  // Check if a row is the very last visible row in the chart
+  const isLastRow = (wsIndex: number) => {
+    if (wsIndex < data.workstreams.length - 1) return false;
+    const ws = data.workstreams[wsIndex];
+    const wsMilestones = data.milestones.filter((m: any) => m.workstreamId === ws.id);
+    return collapsed[ws.id] || wsMilestones.length === 0;
+  };
+
+  const isLastMilestone = (wsIndex: number, msIndex: number, msCount: number) => {
+    return wsIndex === data.workstreams.length - 1 && msIndex === msCount - 1;
   };
 
   return (
@@ -87,19 +104,38 @@ export function GanttPage() {
             <div className="h-10 border-b border-[var(--border)] bg-[var(--surface-1)] px-4 flex items-center">
               <span className="text-[10px] text-[var(--text-3)] uppercase tracking-widest">Workstream</span>
             </div>
-            {data.workstreams.map((ws: any) => (
-              <div key={ws.id}>
-                <div className="h-10 border-b border-[var(--border)] px-4 flex items-center gap-2">
-                  <span className="text-sm text-[var(--text-0)] font-medium truncate flex-1">{ws.name}</span>
-                  <span className="text-[10px] text-[var(--text-3)] ltr-num">{ws.completionPct}%</span>
-                </div>
-                {data.milestones.filter((m: any) => m.workstreamId === ws.id).map((ms: any) => (
-                  <div key={ms.id} className="h-8 border-b border-[var(--border)] px-4 ps-8 flex items-center">
-                    <span className="text-xs text-[var(--text-2)] truncate">◆ {ms.name}</span>
+            {data.workstreams.map((ws: any, wsIdx: number) => {
+              const wsMilestones = data.milestones.filter((m: any) => m.workstreamId === ws.id);
+              const isOpen = !collapsed[ws.id];
+              const lastWsRow = isLastRow(wsIdx);
+
+              return (
+                <div key={ws.id}>
+                  <div className={`h-10 ${lastWsRow ? '' : 'border-b'} border-[var(--border)] px-4 flex items-center gap-2`}>
+                    {wsMilestones.length > 0 ? (
+                      <button
+                        onClick={() => toggleCollapse(ws.id)}
+                        className="text-[var(--text-3)] hover:text-[var(--text-1)] transition-colors w-4 text-center flex-shrink-0"
+                      >
+                        <span className={`inline-block text-[10px] transition-transform ${isOpen ? 'rotate-90' : ''}`}>&#9654;</span>
+                      </button>
+                    ) : (
+                      <span className="w-4 flex-shrink-0" />
+                    )}
+                    <span className="text-sm text-[var(--text-0)] font-medium truncate flex-1">{ws.name}</span>
+                    <span className="text-[10px] text-[var(--text-3)] ltr-num">{ws.completionPct}%</span>
                   </div>
-                ))}
-              </div>
-            ))}
+                  {isOpen && wsMilestones.map((ms: any, msIdx: number) => {
+                    const lastMs = isLastMilestone(wsIdx, msIdx, wsMilestones.length);
+                    return (
+                      <div key={ms.id} className={`h-8 ${lastMs ? '' : 'border-b'} border-[var(--border)] px-4 ps-10 flex items-center`}>
+                        <span className="text-xs text-[var(--text-2)] truncate">&#9670; {ms.name}</span>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
           </div>
 
           {/* Chart */}
@@ -122,27 +158,32 @@ export function GanttPage() {
                   </div>
                 )}
 
-                {data.workstreams.map((ws: any) => {
+                {data.workstreams.map((ws: any, wsIdx: number) => {
                   const barLeft = Math.max(0, ws.startOffsetDays) * dayWidth;
                   const barWidth = Math.max(dayWidth, ws.durationDays * dayWidth);
                   const wsMilestones = data.milestones.filter((m: any) => m.workstreamId === ws.id);
+                  const isOpen = !collapsed[ws.id];
+                  const lastWsRow = isLastRow(wsIdx);
 
                   return (
                     <div key={ws.id}>
-                      <div className="h-10 border-b border-[var(--border)] relative">
+                      <div className={`h-10 ${lastWsRow ? '' : 'border-b'} border-[var(--border)] relative`}>
                         <div className={`absolute top-2 h-6 rounded-lg ${barColor[ws.status] ?? 'bg-indigo-500'} transition-all`} style={{ left: barLeft, width: barWidth }}>
                           <div className="h-full rounded-lg bg-white/20" style={{ width: `${ws.completionPct}%` }} />
                         </div>
                       </div>
-                      {wsMilestones.map((ms: any) => (
-                        <div key={ms.id} className="h-8 border-b border-[var(--border)] relative">
-                          <div
-                            className={`absolute top-1.5 w-4 h-4 rotate-45 rounded-sm ${diamondColor[ms.status] ?? 'bg-blue-400'}`}
-                            style={{ left: Math.max(0, ms.startOffsetDays * dayWidth - 8) }}
-                            title={`${ms.name}`}
-                          />
-                        </div>
-                      ))}
+                      {isOpen && wsMilestones.map((ms: any, msIdx: number) => {
+                        const lastMs = isLastMilestone(wsIdx, msIdx, wsMilestones.length);
+                        return (
+                          <div key={ms.id} className={`h-8 ${lastMs ? '' : 'border-b'} border-[var(--border)] relative`}>
+                            <div
+                              className={`absolute top-1.5 w-4 h-4 rotate-45 rounded-sm ${diamondColor[ms.status] ?? 'bg-blue-400'}`}
+                              style={{ left: Math.max(0, ms.startOffsetDays * dayWidth - 8) }}
+                              title={`${ms.name}`}
+                            />
+                          </div>
+                        );
+                      })}
                     </div>
                   );
                 })}
