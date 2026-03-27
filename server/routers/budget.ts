@@ -21,7 +21,7 @@ export const budgetRouter = router({
     .use(requireRole('pmo'))
     .input(z.object({
       ventureId: z.string().uuid(),
-      amount: z.string(),
+      amount: z.string().regex(/^\d+(\.\d{1,2})?$/, 'Must be a valid positive number'),
     }))
     .mutation(async ({ ctx, input }) => {
       const [venture] = await ctx.db.select().from(ventures).where(eq(ventures.id, input.ventureId)).limit(1);
@@ -51,8 +51,8 @@ export const budgetRouter = router({
     .input(z.object({
       ventureId: z.string().uuid(),
       entryType: z.enum(BUDGET_ENTRY_TYPE),
-      amount: z.string(),
-      entryDate: z.string(),
+      amount: z.string().regex(/^\d+(\.\d{1,2})?$/, 'Must be a valid positive number'),
+      entryDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD format'),
       category: z.enum(BUDGET_CATEGORY),
       description: z.string().min(1),
       vendor: z.string().max(255).optional(),
@@ -85,7 +85,7 @@ export const budgetRouter = router({
   updateForecast: protectedProcedure
     .input(z.object({
       ventureId: z.string().uuid(),
-      forecastToComplete: z.string(),
+      forecastToComplete: z.string().regex(/^\d+(\.\d{1,2})?$/, 'Must be a valid positive number'),
     }))
     .mutation(async ({ ctx, input }) => {
       const [venture] = await ctx.db.select().from(ventures).where(eq(ventures.id, input.ventureId)).limit(1);

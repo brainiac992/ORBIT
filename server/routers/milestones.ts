@@ -51,7 +51,7 @@ export const milestonesRouter = router({
     .input(z.object({
       workstreamId: z.string().uuid(),
       name: z.string().min(1).max(255),
-      dueDate: z.string(),
+      dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD format'),
       notes: z.string().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
@@ -72,8 +72,8 @@ export const milestonesRouter = router({
     .input(z.object({
       id: z.string().uuid(),
       name: z.string().min(1).max(255).optional(),
-      dueDate: z.string().optional(),
-      actualCompletionDate: z.string().nullable().optional(),
+      dueDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD format').optional(),
+      actualCompletionDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD format').nullable().optional(),
       status: z.enum(MILESTONE_STATUS).optional(),
       notes: z.string().nullable().optional(),
     }))

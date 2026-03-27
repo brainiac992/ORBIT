@@ -48,8 +48,8 @@ export const venturesRouter = router({
       description: z.string().optional(),
       ventureType: z.string().max(100).optional(),
       pmUserId: z.string().uuid(),
-      startDate: z.string(),
-      targetEndDate: z.string(),
+      startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD format'),
+      targetEndDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD format'),
     }))
     .mutation(async ({ ctx, input }) => {
       const [venture] = await ctx.db.insert(ventures).values({
@@ -81,8 +81,8 @@ export const venturesRouter = router({
       pmUserId: z.string().uuid().optional(),
       status: z.enum(VENTURE_STATUS).optional(),
       health: z.enum(HEALTH_STATUS).optional(),
-      startDate: z.string().optional(),
-      targetEndDate: z.string().optional(),
+      startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD format').optional(),
+      targetEndDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD format').optional(),
       completionPct: z.number().int().min(0).max(100).optional(),
     }))
     .mutation(async ({ ctx, input }) => {

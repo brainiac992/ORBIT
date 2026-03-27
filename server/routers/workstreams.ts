@@ -41,8 +41,8 @@ export const workstreamsRouter = router({
       ventureId: z.string().uuid(),
       name: z.string().min(1).max(255),
       ownerResourceId: z.string().uuid().optional(),
-      baselineStart: z.string().optional(),
-      baselineEnd: z.string().optional(),
+      baselineStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD format').optional(),
+      baselineEnd: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD format').optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       await assertVentureAccess(ctx, input.ventureId);
@@ -65,13 +65,13 @@ export const workstreamsRouter = router({
       id: z.string().uuid(),
       name: z.string().min(1).max(255).optional(),
       ownerResourceId: z.string().uuid().nullable().optional(),
-      baselineStart: z.string().optional(),
-      baselineEnd: z.string().optional(),
-      actualStart: z.string().nullable().optional(),
-      actualEnd: z.string().nullable().optional(),
+      baselineStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD format').optional(),
+      baselineEnd: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD format').optional(),
+      actualStart: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD format').nullable().optional(),
+      actualEnd: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD format').nullable().optional(),
       status: z.enum(WORKSTREAM_STATUS).optional(),
       completionPct: z.number().int().min(0).max(100).optional(),
-      sortOrder: z.number().int().optional(),
+      sortOrder: z.number().int().min(0).max(9999).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const { id, ...updates } = input;

@@ -10,7 +10,7 @@ import {
   workstreams,
   milestones,
 } from '../db/schema.js';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, and, inArray } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
 import { HEALTH_STATUS, WORKSTREAM_STATUS } from '../../shared/enums.js';
 
@@ -32,7 +32,7 @@ export const progressRouter = router({
       })).optional(),
       milestoneCompletions: z.array(z.object({
         milestoneId: z.string().uuid(),
-        completedAt: z.string(),
+        completedAt: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD format'),
       })).optional(),
       blockersList: z.array(z.object({
         description: z.string().min(1),
@@ -47,6 +47,38 @@ export const progressRouter = router({
       if (!venture) throw new TRPCError({ code: 'NOT_FOUND', message: 'Venture not found' });
       if (venture.pmUserId !== ctx.user.id) {
         throw new TRPCError({ code: 'FORBIDDEN', message: 'You do not have access to this venture' });
+      }
+
+      // Verify workstreamIds belong to this venture
+      if (input.workstreamUpdates?.length) {
+        const wsIds = input.workstreamUpdates.map(wu => wu.workstreamId);
+        const ventureWs = await ctx.db.select({ id: workstreams.id }).from(workstreams)
+          .where(and(inArray(workstreams.id, wsIds), eq(workstreams.ventureId, input.ventureId)));
+        const validWsIds = new Set(ventureWs.map(w => w.id));
+        for (const wu of input.workstreamUpdates) {
+          if (!validWsIds.has(wu.workstreamId)) {
+            throw new TRPCError({ code: 'BAD_REQUEST', message: `Workstream ${wu.workstreamId} does not belong to this venture` });
+          }
+        }
+      }
+
+      // Verify milestoneIds belong to workstreams in this venture
+      if (input.milestoneCompletions?.length) {
+        const msIds = input.milestoneCompletions.map(mc => mc.milestoneId);
+        const ventureWs = await ctx.db.select({ id: workstreams.id }).from(workstreams)
+          .where(eq(workstreams.ventureId, input.ventureId));
+        const ventureWsIds = ventureWs.map(w => w.id);
+        if (ventureWsIds.length === 0) {
+          throw new TRPCError({ code: 'BAD_REQUEST', message: 'Venture has no workstreams' });
+        }
+        const ventureMilestones = await ctx.db.select({ id: milestones.id }).from(milestones)
+          .where(inArray(milestones.workstreamId, ventureWsIds));
+        const validMsIds = new Set(ventureMilestones.map(m => m.id));
+        for (const mc of input.milestoneCompletions) {
+          if (!validMsIds.has(mc.milestoneId)) {
+            throw new TRPCError({ code: 'BAD_REQUEST', message: `Milestone ${mc.milestoneId} does not belong to this venture` });
+          }
+        }
       }
 
       // Atomic transaction — all or nothing

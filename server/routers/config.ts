@@ -43,7 +43,7 @@ const SEED_DATA: Record<string, { label: string; value: string }[]> = {
 
 export const configRouter = router({
   listByCategory: protectedProcedure
-    .input(z.object({ category: z.string() }))
+    .input(z.object({ category: z.enum(VALID_CATEGORIES) }))
     .query(async ({ ctx, input }) => {
       return ctx.db
         .select()
@@ -71,7 +71,7 @@ export const configRouter = router({
   create: protectedProcedure
     .use(requireRole('pmo'))
     .input(z.object({
-      category: z.string().min(1).max(50),
+      category: z.enum(VALID_CATEGORIES),
       label: z.string().min(1).max(255),
       value: z.string().min(1).max(255),
       sortOrder: z.number().int().optional(),

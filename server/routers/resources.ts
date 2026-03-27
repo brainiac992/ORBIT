@@ -58,8 +58,8 @@ export const resourcesRouter = router({
       resourceId: z.string().uuid(),
       ventureId: z.string().uuid(),
       hoursPerWeek: z.string(),
-      startDate: z.string(),
-      endDate: z.string().optional(),
+      startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD format'),
+      endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Date must be YYYY-MM-DD format').optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const [assignment] = await ctx.db.insert(resourceAssignments).values({

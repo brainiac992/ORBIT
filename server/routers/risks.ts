@@ -256,10 +256,10 @@ export const risksRouter = router({
     .input(z.object({
       ventureId: z.string().uuid(),
       title: z.string().min(1).max(255),
-      description: z.string().optional(),
+      description: z.string().max(5000).optional(),
       severity: z.enum(RISK_IMPACT),
-      impactDescription: z.string().optional(),
-      resolutionPlan: z.string().optional(),
+      impactDescription: z.string().max(5000).optional(),
+      resolutionPlan: z.string().max(5000).optional(),
       owner: z.string().max(255).optional(),
     }))
     .mutation(async ({ ctx, input }) => {
@@ -283,7 +283,7 @@ export const risksRouter = router({
     .input(z.object({
       id: z.string().uuid(),
       status: z.enum(ISSUE_STATUS).optional(),
-      resolutionPlan: z.string().optional(),
+      resolutionPlan: z.string().max(5000).optional(),
       owner: z.string().max(255).optional(),
       escalated: z.boolean().optional(),
     }))
@@ -293,6 +293,11 @@ export const risksRouter = router({
       if (!issue) throw new TRPCError({ code: 'NOT_FOUND' });
       await assertVentureReadAccess(ctx, issue.ventureId);
       if (ctx.user.role === 'gm') throw new TRPCError({ code: 'FORBIDDEN' });
+
+      // Prevent escalation of resolved issues
+      if (updates.escalated === true && issue.status === 'resolved') {
+        throw new TRPCError({ code: 'BAD_REQUEST', message: 'Cannot escalate a resolved issue' });
+      }
 
       const [updated] = await ctx.db.update(issues)
         .set({ ...updates, updatedAt: new Date() })
@@ -348,9 +353,9 @@ export const risksRouter = router({
   // ── Resolve decision ────────────────────────────
 
   resolveDecision: protectedProcedure
+    .use(requireRole('pmo'))
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
-      if (ctx.user.role === 'gm') throw new TRPCError({ code: 'FORBIDDEN' });
       const [decision] = await ctx.db.select().from(decisions).where(eq(decisions.id, input.id)).limit(1);
       if (!decision) throw new TRPCError({ code: 'NOT_FOUND' });
       await assertVentureReadAccess(ctx, decision.ventureId);

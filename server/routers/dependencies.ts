@@ -30,7 +30,7 @@ export const dependenciesRouter = router({
       targetType: z.enum(DEPENDENCY_NODE_TYPE),
       targetId: z.string().uuid(),
       dependencyType: z.enum(DEPENDENCY_TYPE).default('finish_to_start'),
-      lagDays: z.number().int().default(0),
+      lagDays: z.number().int().min(-365).max(365).default(0),
     }))
     .mutation(async ({ ctx, input }) => {
       const [venture] = await ctx.db.select().from(ventures).where(eq(ventures.id, input.ventureId)).limit(1);

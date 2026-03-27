@@ -71,7 +71,7 @@ export const exportRouter = router({
         .limit(1);
 
       // PM info
-      const [pm] = await ctx.db.select().from(users).where(eq(users.id, venture.pmUserId)).limit(1);
+      const [pm] = await ctx.db.select({ id: users.id, name: users.name }).from(users).where(eq(users.id, venture.pmUserId)).limit(1);
 
       return {
         exportedAt: new Date().toISOString(),
