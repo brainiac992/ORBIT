@@ -91,12 +91,10 @@ export function RisksPage() {
   const { data: risksList, isLoading: risksLoading, error: risksError } = trpc.risks.listRisks.useQuery({ ventureId: ventureId! });
   const { data: summary } = trpc.risks.riskSummary.useQuery({ ventureId: ventureId! });
   const { data: heatmapData } = trpc.risks.heatmapData.useQuery({ ventureId: ventureId! });
-  const { data: issuesList, isLoading: issuesLoading } = trpc.risks.listIssues.useQuery({ ventureId: ventureId! });
   const { data: ventureResources } = trpc.raci.listVentureResources.useQuery({ ventureId: ventureId! });
 
   const [showRiskForm, setShowRiskForm] = useState(false);
   const [editingRisk, setEditingRisk] = useState<any>(null);
-  const [showIssueForm, setShowIssueForm] = useState(false);
   const [heatmapFilter, setHeatmapFilter] = useState<{ likelihood: number; impact: number } | null>(null);
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterOwner, setFilterOwner] = useState<string>('all');
@@ -143,11 +141,8 @@ export function RisksPage() {
   const openRisks = filteredRisks.filter((r: any) => r.status === 'open');
   const closedRisks = filteredRisks.filter((r: any) => r.status !== 'open');
 
-  if (risksLoading || issuesLoading) return <div className="p-8 text-center text-[var(--text-3)]">Loading risks...</div>;
+  if (risksLoading) return <div className="p-8 text-center text-[var(--text-3)]">Loading risks...</div>;
   if (risksError) return <div className="p-8 text-red-400">Unable to load risk data.</div>;
-
-  const openIssues = issuesList?.filter((i: any) => i.status !== 'resolved') ?? [];
-  const resolvedIssues = issuesList?.filter((i: any) => i.status === 'resolved') ?? [];
 
   const toggleSort = (field: string) => {
     if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc');
@@ -328,36 +323,6 @@ export function RisksPage() {
         </details>
       )}
 
-      {/* ── Issues ───────────────────────── */}
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold text-[var(--text-0)]">Issues</h3>
-        {!isGM && <Button onClick={() => setShowIssueForm(true)}>Log Issue</Button>}
-      </div>
-
-      {openIssues.length === 0 ? (
-        <p className="text-[var(--text-3)] mb-6">No open issues.</p>
-      ) : (
-        <div className="space-y-3 mb-6">
-          {openIssues.map((i: any) => (
-            <IssueCard key={i.id} issue={i} ventureId={ventureId!} isGM={isGM} />
-          ))}
-        </div>
-      )}
-
-      {resolvedIssues.length > 0 && (
-        <details className="mb-8">
-          <summary className="text-sm text-[var(--text-3)] cursor-pointer mb-2">Resolved Issues ({resolvedIssues.length})</summary>
-          <div className="space-y-2">
-            {resolvedIssues.map((i: any) => (
-              <div key={i.id} className="bg-[var(--surface-1)] rounded-xl p-3 text-sm text-[var(--text-3)] flex items-center gap-2">
-                <span className="flex-1">{i.title}</span>
-                <StatusBadge status={i.status} />
-              </div>
-            ))}
-          </div>
-        </details>
-      )}
-
       {/* ── Forms ────────────────────────── */}
       <RiskFormModal
         open={showRiskForm}
@@ -366,7 +331,6 @@ export function RisksPage() {
         editRisk={editingRisk}
         resources={ventureResources ?? []}
       />
-      <CreateIssueForm open={showIssueForm} onClose={() => setShowIssueForm(false)} ventureId={ventureId!} />
     </div>
   );
 }
@@ -611,80 +575,4 @@ function RiskFormModal({ open, onClose, ventureId, editRisk, resources }: {
   );
 }
 
-// ── Issue Card ───────────────────────────────────
-
-function IssueCard({ issue, ventureId, isGM }: { issue: any; ventureId: string; isGM: boolean }) {
-  const utils = trpc.useUtils();
-  const updateIssue = trpc.risks.updateIssue.useMutation({
-    onSuccess: () => utils.risks.listIssues.invalidate({ ventureId }),
-  });
-
-  return (
-    <div className="bg-[var(--surface-0)] rounded-xl border border-[var(--border)] p-4">
-      <div className="flex items-center justify-between mb-2">
-        <span className="font-medium text-sm text-[var(--text-0)]">{issue.title}</span>
-        <StatusBadge status={issue.status} />
-      </div>
-      {issue.description && <p className="text-xs text-[var(--text-3)] mb-2">{issue.description}</p>}
-      <div className="flex gap-4 text-xs text-[var(--text-3)] mb-1">
-        <span>Severity: {issue.severity}</span>
-        <span>Owner: {issue.owner ?? '—'}</span>
-      </div>
-      {issue.resolutionPlan && <p className="text-xs text-[var(--text-3)] mb-3">Resolution: {issue.resolutionPlan}</p>}
-      {issue.escalated && <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full me-2">Escalated</span>}
-
-      {!isGM && (
-        <div className="flex gap-2 mt-3 pt-3 border-t border-[var(--border)]">
-          {!issue.escalated && (
-            <Button variant="secondary" onClick={() => updateIssue.mutate({ id: issue.id, escalated: true })}>
-              Escalate
-            </Button>
-          )}
-          {issue.status === 'open' && (
-            <Button variant="secondary" onClick={() => updateIssue.mutate({ id: issue.id, status: 'in_progress' })}>
-              In Progress
-            </Button>
-          )}
-          <Button variant="secondary" onClick={() => updateIssue.mutate({ id: issue.id, status: 'resolved' })}>
-            Resolve
-          </Button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ── Create Issue Form ───────────────────────────
-
-function CreateIssueForm({ open, onClose, ventureId }: { open: boolean; onClose: () => void; ventureId: string }) {
-  const utils = trpc.useUtils();
-  const create = trpc.risks.createIssue.useMutation({
-    onSuccess: () => { utils.risks.listIssues.invalidate({ ventureId }); onClose(); },
-  });
-  const [form, setForm] = useState({ title: '', description: '', severity: 'medium', resolutionPlan: '', owner: '' });
-
-  const handleSubmit = () => {
-    if (!form.title.trim()) return;
-    create.mutate({ ventureId, ...form, severity: form.severity as any });
-    setForm({ title: '', description: '', severity: 'medium', resolutionPlan: '', owner: '' });
-  };
-
-  return (
-    <Modal open={open} onClose={onClose} title="Log Issue">
-      <FormField label="Title" required><Input value={form.title} onChange={e => setForm(f => ({ ...f, title: e.target.value }))} placeholder="Issue title" /></FormField>
-      <FormField label="Description"><TextArea value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} rows={2} placeholder="Describe the issue" /></FormField>
-      <FormField label="Severity">
-        <Select value={form.severity} onChange={e => setForm(f => ({ ...f, severity: e.target.value }))}>
-          <option value="low">Low</option><option value="medium">Medium</option><option value="high">High</option><option value="blocker">Blocker</option>
-        </Select>
-      </FormField>
-      <FormField label="Resolution Plan"><TextArea value={form.resolutionPlan} onChange={e => setForm(f => ({ ...f, resolutionPlan: e.target.value }))} rows={2} placeholder="How will this be resolved?" /></FormField>
-      <FormField label="Owner"><Input value={form.owner} onChange={e => setForm(f => ({ ...f, owner: e.target.value }))} placeholder="Who owns this issue" /></FormField>
-      <div className="flex justify-end gap-2 mt-4">
-        <Button variant="secondary" onClick={onClose}>Cancel</Button>
-        <Button onClick={handleSubmit} disabled={create.isPending || !form.title.trim()}>{create.isPending ? 'Saving...' : 'Log Issue'}</Button>
-      </div>
-    </Modal>
-  );
-}
 

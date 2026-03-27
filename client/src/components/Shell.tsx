@@ -27,6 +27,7 @@ const ventureTabs = [
   { label: 'Budget', icon: '💰', suffix: 'budget' },
   { label: 'Progress', icon: '📈', suffix: 'progress' },
   { label: 'Risks', icon: '⚡', suffix: 'risks' },
+  { label: 'Issues', icon: '🔧', suffix: 'issues' },
 ];
 
 export function Shell() {

@@ -14,6 +14,7 @@ import { BudgetPage } from './pages/BudgetPage.js';
 import { ProgressPage } from './pages/ProgressPage.js';
 import { RisksPage } from './pages/RisksPage.js';
 import { RaciPage } from './pages/RaciPage.js';
+import { IssuesPage } from './pages/IssuesPage.js';
 import { ResourcesPage } from './pages/ResourcesPage.js';
 import { WeeklyUpdatePage } from './pages/WeeklyUpdate.js';
 import { ActivityPage } from './pages/ActivityPage.js';
@@ -43,6 +44,7 @@ function AppInner() {
         <Route path="/venture/:ventureId/budget" element={<BudgetPage />} />
         <Route path="/venture/:ventureId/progress" element={<ProgressPage />} />
         <Route path="/venture/:ventureId/risks" element={<RisksPage />} />
+        <Route path="/venture/:ventureId/issues" element={<IssuesPage />} />
         <Route path="/venture/:ventureId/raci" element={<RaciPage />} />
         <Route path="/venture/:ventureId/resources" element={<ResourcesPage />} />
         <Route path="/venture/:ventureId/update" element={<WeeklyUpdatePage />} />
