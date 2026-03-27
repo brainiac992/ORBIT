@@ -139,7 +139,7 @@ export function GanttPage() {
           </div>
 
           {/* Chart */}
-          <div className="flex-1 overflow-x-auto">
+          <div className="flex-1 overflow-x-auto gantt-scroll">
             <div style={{ width: Math.max(chartWidth, 600), minWidth: '100%' }}>
               {/* Headers */}
               <div className="h-10 border-b border-[var(--border)] bg-[var(--surface-1)] flex">
