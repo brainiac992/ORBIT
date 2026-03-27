@@ -3,6 +3,7 @@ import { trpc } from '../lib/trpc.js';
 import { HealthDot, StatusBadge, ProgressRing, KpiCard, formatAED, SectionHeader } from '../components/StatusBadge.js';
 import { Button } from '../components/Modal.js';
 import { useExportVenture } from '../hooks/useExport.js';
+import { formatDate } from '../lib/format.js';
 
 export function PMDashboard() {
   const { data, isLoading, error } = trpc.dashboard.pm.useQuery();
@@ -28,7 +29,7 @@ export function PMDashboard() {
           <h2 className="text-2xl font-bold text-[var(--text-0)]">{venture.name}</h2>
           <div className="flex items-center gap-3 mt-1">
             <HealthDot health={venture.health} size="sm" />
-            <span className="text-xs text-[var(--text-3)]">Updated {new Date(venture.updatedAt).toLocaleDateString()}</span>
+            <span className="text-xs text-[var(--text-3)]">Updated {formatDate(venture.updatedAt)}</span>
           </div>
         </div>
         <ExportButtons ventureId={venture.id} />
@@ -133,9 +134,4 @@ function ExportButtons({ ventureId }: { ventureId: string }) {
       <Button variant="ghost" onClick={printReport} className="!text-xs">Print PDF</Button>
     </div>
   );
-}
-
-// Keep this exported for other pages that use VentureTabs
-export function VentureTabs({ ventureId, active }: { ventureId: string; active: string }) {
-  return null; // Navigation is now in the sidebar
 }

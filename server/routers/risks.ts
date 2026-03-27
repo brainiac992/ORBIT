@@ -261,6 +261,7 @@ export const risksRouter = router({
   resolveBlocker: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
+      if (ctx.user.role === 'gm') throw new TRPCError({ code: 'FORBIDDEN' });
       const [blocker] = await ctx.db.select().from(blockers).where(eq(blockers.id, input.id)).limit(1);
       if (!blocker) throw new TRPCError({ code: 'NOT_FOUND' });
       await assertVentureReadAccess(ctx, blocker.ventureId);
@@ -276,6 +277,7 @@ export const risksRouter = router({
   resolveDecision: protectedProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
+      if (ctx.user.role === 'gm') throw new TRPCError({ code: 'FORBIDDEN' });
       const [decision] = await ctx.db.select().from(decisions).where(eq(decisions.id, input.id)).limit(1);
       if (!decision) throw new TRPCError({ code: 'NOT_FOUND' });
       await assertVentureReadAccess(ctx, decision.ventureId);

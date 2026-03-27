@@ -38,7 +38,7 @@ export function RisksPage() {
     <div className="p-6 max-w-5xl mx-auto">
       {/* ── Risks ────────────────────────── */}
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold">Risks</h3>
+        <h3 className="text-lg font-semibold text-[var(--text-0)]">Risks</h3>
         {!isGM && <Button onClick={() => setShowRiskForm(true)}>Log Risk</Button>}
       </div>
 
@@ -68,7 +68,7 @@ export function RisksPage() {
 
       {/* ── Issues ───────────────────────── */}
       <div className="flex items-center justify-between mb-4">
-        <h3 className="text-lg font-semibold">Issues</h3>
+        <h3 className="text-lg font-semibold text-[var(--text-0)]">Issues</h3>
         {!isGM && <Button onClick={() => setShowIssueForm(true)}>Log Issue</Button>}
       </div>
 
@@ -142,7 +142,7 @@ function RiskCard({ risk, ragBorder, ventureId, isGM }: { risk: any; ragBorder: 
   return (
     <div className={`bg-[var(--surface-0)] rounded-xl border border-[var(--border)] p-4 ${ragBorder[risk.rag] ?? ''}`}>
       <div className="flex items-center justify-between mb-2">
-        <span className="font-medium text-sm">{risk.title}</span>
+        <span className="font-medium text-sm text-[var(--text-0)]">{risk.title}</span>
         <StatusBadge status={risk.status} />
       </div>
       {risk.description && <p className="text-xs text-[var(--text-3)] mb-2">{risk.description}</p>}
@@ -152,7 +152,7 @@ function RiskCard({ risk, ragBorder, ventureId, isGM }: { risk: any; ragBorder: 
         <span>Owner: {risk.owner ?? '—'}</span>
       </div>
       {risk.mitigationPlan && <p className="text-xs text-[var(--text-3)] mb-3">Mitigation: {risk.mitigationPlan}</p>}
-      {risk.escalated && <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full me-2">Escalated</span>}
+      {risk.escalated && <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full me-2">Escalated</span>}
 
       {!isGM && (
         <div className="flex gap-2 mt-3 pt-3 border-t border-[var(--border)]">
@@ -186,7 +186,7 @@ function IssueCard({ issue, ventureId, isGM }: { issue: any; ventureId: string; 
   return (
     <div className="bg-[var(--surface-0)] rounded-xl border border-[var(--border)] p-4">
       <div className="flex items-center justify-between mb-2">
-        <span className="font-medium text-sm">{issue.title}</span>
+        <span className="font-medium text-sm text-[var(--text-0)]">{issue.title}</span>
         <StatusBadge status={issue.status} />
       </div>
       {issue.description && <p className="text-xs text-[var(--text-3)] mb-2">{issue.description}</p>}
@@ -195,7 +195,7 @@ function IssueCard({ issue, ventureId, isGM }: { issue: any; ventureId: string; 
         <span>Owner: {issue.owner ?? '—'}</span>
       </div>
       {issue.resolutionPlan && <p className="text-xs text-[var(--text-3)] mb-3">Resolution: {issue.resolutionPlan}</p>}
-      {issue.escalated && <span className="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full me-2">Escalated</span>}
+      {issue.escalated && <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full me-2">Escalated</span>}
 
       {!isGM && (
         <div className="flex gap-2 mt-3 pt-3 border-t border-[var(--border)]">
@@ -230,7 +230,7 @@ function BlockerCard({ blocker, isGM }: { blocker: any; isGM: boolean }) {
   });
 
   return (
-    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+    <div className="bg-amber-500/10 border border-amber-500/20 rounded-lg p-4">
       <div className="flex items-center justify-between">
         <div className="flex items-start gap-2">
           <span className="text-amber-500 mt-0.5">●</span>

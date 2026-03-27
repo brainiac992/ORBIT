@@ -18,7 +18,7 @@ export function WeeklyUpdatePage() {
   });
 
   const [status, setStatus] = useState<string>('on_track');
-  const [completionPct, setCompletionPct] = useState(0);
+  const [completionPct, setCompletionPct] = useState<number | ''>('');
   const [narrative, setNarrative] = useState('');
   const [nextActions, setNextActions] = useState('');
   const [wsUpdates, setWsUpdates] = useState<Record<string, { status: string; pct: number }>>({});
@@ -39,7 +39,7 @@ export function WeeklyUpdatePage() {
       ventureId: ventureId!,
       weekLabel,
       overallStatus: status as any,
-      completionPct,
+      completionPct: completionPct === '' ? 0 : completionPct,
       narrative,
       nextActions: nextActions || undefined,
       workstreamUpdates: workstreams?.map(ws => ({
@@ -58,8 +58,8 @@ export function WeeklyUpdatePage() {
 
   return (
     <div className="p-6 max-w-3xl mx-auto">
-      <h2 className="text-xl font-semibold mb-1">Log Weekly Update</h2>
-      <p className="text-sm text-[var(--text-secondary)] mb-6">{weekLabel}</p>
+      <h2 className="text-xl font-semibold mb-1 text-[var(--text-0)]">Log Weekly Update</h2>
+      <p className="text-sm text-[var(--text-3)] mb-6">{weekLabel}</p>
 
       {/* Overall Status */}
       <FormSection title="Overall Status">
@@ -70,8 +70,8 @@ export function WeeklyUpdatePage() {
               onClick={() => setStatus(s)}
               className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
                 status === s
-                  ? 'border-[var(--accent)] bg-blue-50 text-[var(--accent)]'
-                  : 'border-[var(--border)] text-[var(--text-secondary)] hover:border-gray-300'
+                  ? 'border-[var(--accent)] bg-[var(--accent-dim)] text-[var(--accent)]'
+                  : 'border-[var(--border)] text-[var(--text-3)] hover:border-[var(--border-hover)]'
               }`}
             >
               {s === 'on_track' ? 'On Track' : s === 'at_risk' ? 'At Risk' : 'Off Track'}
@@ -79,12 +79,12 @@ export function WeeklyUpdatePage() {
           ))}
         </div>
         <div className="mt-3">
-          <label className="text-xs text-[var(--text-secondary)]">Overall Completion %</label>
+          <label className="text-xs text-[var(--text-3)]">Overall Completion %</label>
           <input
             type="number"
             min={0} max={100}
             value={completionPct}
-            onChange={e => setCompletionPct(Number(e.target.value))}
+            onChange={e => setCompletionPct(e.target.value === '' ? '' : Number(e.target.value))}
             className="mt-1 block w-24 border border-[var(--border)] bg-[var(--surface-1)] rounded-lg px-3 py-2 text-sm"
           />
         </div>
@@ -126,7 +126,7 @@ export function WeeklyUpdatePage() {
                     onChange={e => setWsUpdates(prev => ({ ...prev, [ws.id]: { ...current, pct: Number(e.target.value) } }))}
                     className="w-16 border border-[var(--border)] bg-[var(--surface-1)] rounded px-2 py-1 text-xs text-end"
                   />
-                  <span className="text-xs text-[var(--text-secondary)]">%</span>
+                  <span className="text-xs text-[var(--text-3)]">%</span>
                 </div>
               );
             })}
@@ -150,7 +150,7 @@ export function WeeklyUpdatePage() {
                   className="w-4 h-4"
                 />
                 <span className="flex-1">{ms.name}</span>
-                <span className={`text-xs ${ms.status === 'overdue' ? 'text-amber-600' : 'text-[var(--text-secondary)]'}`}>
+                <span className={`text-xs ${ms.status === 'overdue' ? 'text-amber-400' : 'text-[var(--text-3)]'}`}>
                   {ms.status === 'overdue' ? `Overdue — ${ms.dueDate}` : ms.dueDate}
                 </span>
               </label>
@@ -181,7 +181,7 @@ export function WeeklyUpdatePage() {
           />
           <button
             onClick={() => { if (newBlocker.trim()) { setBlockersList(prev => [...prev, newBlocker.trim()]); setNewBlocker(''); } }}
-            className="px-3 py-2 text-sm border border-[var(--border)] bg-[var(--surface-1)] rounded-lg hover:bg-gray-50"
+            className="px-3 py-2 text-sm border border-[var(--border)] bg-[var(--surface-1)] rounded-lg hover:bg-[var(--surface-2)]"
           >
             Add
           </button>
@@ -210,7 +210,7 @@ export function WeeklyUpdatePage() {
           />
           <button
             onClick={() => { if (newDecision.trim()) { setDecisionsList(prev => [...prev, newDecision.trim()]); setNewDecision(''); } }}
-            className="px-3 py-2 text-sm border border-[var(--border)] bg-[var(--surface-1)] rounded-lg hover:bg-gray-50"
+            className="px-3 py-2 text-sm border border-[var(--border)] bg-[var(--surface-1)] rounded-lg hover:bg-[var(--surface-2)]"
           >
             Add
           </button>
@@ -230,7 +230,7 @@ export function WeeklyUpdatePage() {
 
       {/* Submit */}
       <div className="mt-6">
-        <p className="text-xs text-amber-600 mb-3">Once submitted, this update cannot be edited.</p>
+        <p className="text-xs text-amber-400 mb-3">Once submitted, this update cannot be edited.</p>
         <button
           onClick={handleSubmit}
           disabled={submitMutation.isPending || !narrative.trim()}
@@ -246,7 +246,7 @@ export function WeeklyUpdatePage() {
 function FormSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="mb-6">
-      <h3 className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide mb-3">{title}</h3>
+      <h3 className="text-xs font-medium text-[var(--text-3)] uppercase tracking-wide mb-3">{title}</h3>
       {children}
     </div>
   );

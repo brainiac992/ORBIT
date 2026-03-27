@@ -1,6 +1,7 @@
 import { useParams } from 'react-router-dom';
 import { trpc } from '../lib/trpc.js';
 import { HealthDot } from '../components/StatusBadge.js';
+import { formatDate } from '../lib/format.js';
 
 export function ProgressPage() {
   const { ventureId } = useParams<{ ventureId: string }>();
@@ -36,7 +37,7 @@ export function ProgressPage() {
                       <span className="text-xs text-[var(--text-2)] ltr-num bg-[var(--surface-1)] px-2 py-0.5 rounded-lg">{u.completionPct}%</span>
                     </div>
                     <span className="text-xs text-[var(--text-3)]">
-                      {new Date(u.submittedAt).toLocaleDateString()}
+                      {formatDate(u.submittedAt)}
                     </span>
                   </div>
                   <p className="text-sm text-[var(--text-1)] leading-relaxed">{u.narrative}</p>

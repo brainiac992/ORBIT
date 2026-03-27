@@ -2,6 +2,7 @@ import { trpc } from '../lib/trpc.js';
 import { StatusBadge } from '../components/StatusBadge.js';
 import { Button, Modal, FormField, TextArea } from '../components/Modal.js';
 import { useState } from 'react';
+import { formatDate } from '../lib/format.js';
 
 export function ApprovalsPage() {
   const { data: pending, isLoading } = trpc.approvals.listPending.useQuery();
@@ -35,7 +36,7 @@ export function ApprovalsPage() {
                   <StatusBadge status={a.status} />
                   <span className="text-sm font-medium text-[var(--text-0)] capitalize">{a.entityType.replace('_', ' ')}</span>
                 </div>
-                <span className="text-xs text-[var(--text-3)]">{new Date(a.createdAt).toLocaleDateString()}</span>
+                <span className="text-xs text-[var(--text-3)]">{formatDate(a.createdAt)}</span>
               </div>
               {a.notes && <p className="text-xs text-[var(--text-2)] mb-3">{a.notes}</p>}
               <div className="flex gap-2">

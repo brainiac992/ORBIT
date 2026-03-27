@@ -1,7 +1,6 @@
 import { trpc } from '../lib/trpc.js';
 
 export function useExportVenture(ventureId: string) {
-  const { data: report } = trpc.export.ventureReport.useQuery({ ventureId }, { enabled: false });
   const utils = trpc.useUtils();
 
   const exportCSV = async () => {

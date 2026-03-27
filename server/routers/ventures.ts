@@ -72,6 +72,7 @@ export const venturesRouter = router({
     }),
 
   update: protectedProcedure
+    .use(requireRole('pmo', 'pm'))
     .input(z.object({
       id: z.string().uuid(),
       name: z.string().min(1).max(255).optional(),

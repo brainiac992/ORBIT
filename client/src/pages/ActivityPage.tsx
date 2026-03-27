@@ -1,3 +1,4 @@
+import { useState, useEffect, useCallback } from 'react';
 import { trpc } from '../lib/trpc.js';
 import { useAuth } from '../lib/auth.js';
 import { formatDate } from '../lib/format.js';
@@ -32,18 +33,29 @@ export function ActivityPage() {
   );
 }
 
-function CombinedActivity({ ventureIds }: { ventureIds: string[] }) {
-  // Fetch all venture audit trails
-  const queries = ventureIds.map(id => trpc.audit.list.useQuery({ ventureId: id }));
-  const isLoading = queries.some(q => q.isLoading);
+function VentureAuditFetcher({ ventureId, onData }: { ventureId: string; onData: (ventureId: string, entries: any[]) => void }) {
+  const { data, isLoading } = trpc.audit.list.useQuery({ ventureId });
+  useEffect(() => {
+    if (!isLoading && data) {
+      onData(ventureId, data as any[]);
+    }
+  }, [data, isLoading, ventureId, onData]);
+  return null;
+}
 
-  if (isLoading) return <div className="text-[var(--text-3)]">Loading activity...</div>;
+function CombinedActivity({ ventureIds }: { ventureIds: string[] }) {
+  const [entriesMap, setEntriesMap] = useState<Record<string, any[]>>({});
+
+  const handleData = useCallback((ventureId: string, entries: any[]) => {
+    setEntriesMap(prev => ({ ...prev, [ventureId]: entries }));
+  }, []);
+
+  const loadedCount = Object.keys(entriesMap).length;
+  const isLoading = loadedCount < ventureIds.length;
 
   // Combine all entries and sort by date desc
-  const allEntries = queries.flatMap(q => (q.data as any[]) ?? []);
+  const allEntries = Object.values(entriesMap).flat();
   allEntries.sort((a, b) => new Date(b.changedAt).getTime() - new Date(a.changedAt).getTime());
-
-  if (allEntries.length === 0) return <EmptyActivity />;
 
   // Group by date
   const grouped: Record<string, any[]> = {};
@@ -54,6 +66,11 @@ function CombinedActivity({ ventureIds }: { ventureIds: string[] }) {
 
   return (
     <div>
+      {ventureIds.map(id => (
+        <VentureAuditFetcher key={id} ventureId={id} onData={handleData} />
+      ))}
+      {isLoading && <div className="text-[var(--text-3)]">Loading activity...</div>}
+      {!isLoading && allEntries.length === 0 && <EmptyActivity />}
       {Object.entries(grouped).map(([date, entries]) => (
         <div key={date} className="mb-6">
           <div className="text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-widest mb-3">{date}</div>

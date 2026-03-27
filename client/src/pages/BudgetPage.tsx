@@ -18,7 +18,7 @@ export function BudgetPage() {
   const isGM = user?.role === 'gm';
   const isPMO = user?.role === 'pmo';
 
-  if (isLoading) return <div className="p-8 text-center text-[var(--text-secondary)]">Loading budget...</div>;
+  if (isLoading) return <div className="p-8 text-center text-[var(--text-3)]">Loading budget...</div>;
   if (!data) return null;
 
   const categoryBars = [
@@ -36,20 +36,20 @@ export function BudgetPage() {
       {/* Summary tiles */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <div className="bg-[var(--surface-0)] rounded-2xl border border-[var(--border)] p-5">
-          <div className="text-xs text-[var(--text-secondary)] mb-1">Approved Budget</div>
-          <div className="text-xl font-semibold ltr-num">{formatAED(data.approvedBudget)}</div>
+          <div className="text-xs text-[var(--text-3)] mb-1">Approved Budget</div>
+          <div className="text-xl font-semibold ltr-num text-[var(--text-0)]">{formatAED(data.approvedBudget)}</div>
           {isPMO && !data.budgetLocked && (
             <Button variant="secondary" className="mt-2 !text-xs" onClick={() => setShowSetBudget(true)}>Set Approved Budget</Button>
           )}
-          {data.budgetLocked && <span className="text-xs text-green-600 mt-1 inline-block">Locked</span>}
+          {data.budgetLocked && <span className="text-xs text-emerald-400 mt-1 inline-block">Locked</span>}
         </div>
         <div className="bg-[var(--surface-0)] rounded-2xl border border-[var(--border)] p-5">
-          <div className="text-xs text-[var(--text-secondary)] mb-1">Forecast at Completion</div>
-          <div className="text-xl font-semibold ltr-num">{formatAED(data.forecastAtCompletion)}</div>
+          <div className="text-xs text-[var(--text-3)] mb-1">Forecast at Completion</div>
+          <div className="text-xl font-semibold ltr-num text-[var(--text-0)]">{formatAED(data.forecastAtCompletion)}</div>
         </div>
         <div className="bg-[var(--surface-0)] rounded-2xl border border-[var(--border)] p-5">
-          <div className="text-xs text-[var(--text-secondary)] mb-1">Variance</div>
-          <div className={`text-xl font-semibold ltr-num ${data.budgetVariance < 0 ? 'text-red-600' : 'text-green-600'}`}>
+          <div className="text-xs text-[var(--text-3)] mb-1">Variance</div>
+          <div className={`text-xl font-semibold ltr-num ${data.budgetVariance < 0 ? 'text-red-400' : 'text-emerald-400'}`}>
             {data.budgetVariance >= 0 ? '+' : ''}{formatAED(data.budgetVariance)}
           </div>
           <StatusBadge status={data.budgetStatus} />
@@ -58,12 +58,12 @@ export function BudgetPage() {
 
       {/* Category breakdown */}
       <div className="bg-[var(--surface-0)] rounded-2xl border border-[var(--border)] p-5 mb-6">
-        <h3 className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide mb-4">Spend by Category</h3>
+        <h3 className="text-xs font-medium text-[var(--text-3)] uppercase tracking-widest mb-4">Spend by Category</h3>
         <div className="space-y-3">
           {categoryBars.map(cat => (
             <div key={cat.label} className="flex items-center gap-3 text-sm">
-              <span className="w-24 text-[var(--text-secondary)]">{cat.label}</span>
-              <div className="flex-1 bg-gray-100 rounded-full h-3">
+              <span className="w-24 text-[var(--text-3)]">{cat.label}</span>
+              <div className="flex-1 bg-[var(--surface-2)] rounded-full h-3">
                 <div className={`h-3 rounded-full ${cat.color}`} style={{ width: `${(cat.value / maxCat) * 100}%` }} />
               </div>
               <span className="w-28 text-end ltr-num">{formatAED(cat.value)}</span>
@@ -84,14 +84,14 @@ export function BudgetPage() {
       <div className="bg-[var(--surface-0)] rounded-2xl border border-[var(--border)] overflow-hidden mb-6">
         <div className="px-5 py-3 border-b border-[var(--border)]">
           <h3 className="text-sm font-medium">Spend Log</h3>
-          <p className="text-xs text-[var(--text-secondary)]">Entries cannot be edited. Log a correction to adjust.</p>
+          <p className="text-xs text-[var(--text-3)]">Entries cannot be edited. Log a correction to adjust.</p>
         </div>
         {data.entries.length === 0 ? (
-          <p className="p-5 text-sm text-[var(--text-secondary)]">No spend entries logged yet.</p>
+          <p className="p-5 text-sm text-[var(--text-3)]">No spend entries logged yet.</p>
         ) : (
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-[var(--surface-1)] text-[var(--text-secondary)] text-xs uppercase tracking-wide">
+              <tr className="bg-[var(--surface-1)] text-[var(--text-3)] text-xs uppercase tracking-widest">
                 <th className="text-start px-4 py-2">Date</th>
                 <th className="text-start px-4 py-2">Type</th>
                 <th className="text-start px-4 py-2">Category</th>
@@ -107,7 +107,7 @@ export function BudgetPage() {
                     <StatusBadge status={entry.entryType === 'correction' ? 'at_risk' : entry.entryType === 'committed' ? 'upcoming' : 'on_track'} />
                   </td>
                   <td className="px-4 py-2 capitalize">{entry.category}</td>
-                  <td className="px-4 py-2">{entry.description}{entry.vendor && <span className="text-[var(--text-secondary)]"> — {entry.vendor}</span>}</td>
+                  <td className="px-4 py-2">{entry.description}{entry.vendor && <span className="text-[var(--text-3)]"> — {entry.vendor}</span>}</td>
                   <td className="px-4 py-2 text-end ltr-num font-medium">{formatAED(Number(entry.amount))}</td>
                 </tr>
               ))}
@@ -120,12 +120,12 @@ export function BudgetPage() {
       <div className="bg-[var(--surface-0)] rounded-2xl border border-[var(--border)] p-5">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="text-xs font-medium text-[var(--text-secondary)] uppercase tracking-wide mb-1">Forecast to Complete</h3>
+            <h3 className="text-xs font-medium text-[var(--text-3)] uppercase tracking-widest mb-1">Forecast to Complete</h3>
             <div className="text-lg font-semibold ltr-num">{formatAED(data.forecastToComplete)}</div>
           </div>
           {data.latestForecast && (
-            <div className="text-xs text-[var(--text-secondary)]">
-              Last updated: {new Date(data.latestForecast.createdAt).toLocaleDateString()}
+            <div className="text-xs text-[var(--text-3)]">
+              Last updated: {formatDate(data.latestForecast.createdAt)}
             </div>
           )}
         </div>
@@ -209,7 +209,7 @@ function SetBudgetForm({ open, onClose, ventureId }: { open: boolean; onClose: (
 
   return (
     <Modal open={open} onClose={onClose} title="Set Approved Budget">
-      <p className="text-xs text-amber-600 mb-4">Once set, the approved budget cannot be changed.</p>
+      <p className="text-xs text-amber-400 mb-4">Once set, the approved budget cannot be changed.</p>
       <FormField label="Approved Budget (AED)" required>
         <Input type="number" step="0.01" value={amount} onChange={e => setAmount(e.target.value)} placeholder="e.g. 2100000" />
       </FormField>

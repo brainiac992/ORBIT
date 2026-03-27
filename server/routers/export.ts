@@ -5,8 +5,19 @@ import {
   budgetEntries, budgetForecasts, progressUpdates,
   resourceAssignments, resources, users,
 } from '../db/schema.js';
+
 import { eq, ne, desc } from 'drizzle-orm';
 import { TRPCError } from '@trpc/server';
+import type { BudgetStatus } from '../../shared/enums.js';
+
+function deriveBudgetStatus(approved: number, forecastAtCompletion: number): BudgetStatus {
+  if (approved <= 0) return 'within_budget';
+  const variance = approved - forecastAtCompletion;
+  const variancePct = variance / approved;
+  if (variance < 0) return 'over_budget';
+  if (variancePct <= 0.10) return 'at_risk';
+  return 'within_budget';
+}
 
 export const exportRouter = router({
   ventureReport: protectedProcedure
@@ -83,8 +94,10 @@ export const exportRouter = router({
       const allUsers = await ctx.db.select().from(users);
       const allEntries = await ctx.db.select().from(budgetEntries);
       const allForecasts = await ctx.db.select().from(budgetForecasts);
+      const allEscalatedRisks = (await ctx.db.select().from(risks)).filter(r => r.escalated && r.status === 'open');
+      const allEscalatedIssues = (await ctx.db.select().from(issues)).filter(i => i.escalated && i.status !== 'resolved');
 
-      const venturesSummary = allVentures.map(v => {
+      const ventureCards = allVentures.map(v => {
         const pm = allUsers.find(u => u.id === v.pmUserId);
         const ventureEntries = allEntries.filter(e => e.ventureId === v.id);
         const actualSpend = ventureEntries
@@ -97,6 +110,12 @@ export const exportRouter = router({
           .filter(f => f.ventureId === v.id)
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())[0];
         const forecastToComplete = latestForecast ? Number(latestForecast.forecastToComplete) : 0;
+        const forecastAtCompletion = actualSpend + committedSpend + forecastToComplete;
+        const approved = Number(v.approvedBudget || 0);
+
+        const escalationCount =
+          allEscalatedRisks.filter(r => r.ventureId === v.id).length +
+          allEscalatedIssues.filter(i => i.ventureId === v.id).length;
 
         return {
           id: v.id,
@@ -107,17 +126,27 @@ export const exportRouter = router({
           completionPct: v.completionPct,
           startDate: v.startDate,
           targetEndDate: v.targetEndDate,
-          approvedBudget: Number(v.approvedBudget || 0),
+          approvedBudget: approved,
           actualSpend,
-          forecastAtCompletion: actualSpend + committedSpend + forecastToComplete,
+          forecastAtCompletion,
+          budgetStatus: deriveBudgetStatus(approved, forecastAtCompletion),
+          escalationCount,
           updatedAt: v.updatedAt,
         };
       });
 
+      const summary = {
+        totalActive: ventureCards.length,
+        onTrack: ventureCards.filter(v => v.health === 'on_track').length,
+        atRisk: ventureCards.filter(v => v.health === 'at_risk').length,
+        offTrack: ventureCards.filter(v => v.health === 'off_track').length,
+      };
+
       return {
         exportedAt: new Date().toISOString(),
-        totalVentures: venturesSummary.length,
-        ventures: venturesSummary,
+        summary,
+        totalVentures: ventureCards.length,
+        ventures: ventureCards,
       };
     }),
 });

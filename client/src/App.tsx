@@ -44,9 +44,9 @@ function AppInner() {
         <Route path="/venture/:ventureId/risks" element={<RisksPage />} />
         <Route path="/venture/:ventureId/resources" element={<ResourcesPage />} />
         <Route path="/venture/:ventureId/update" element={<WeeklyUpdatePage />} />
-        <Route path="/activity" element={<ActivityPage />} />
-        <Route path="/approvals" element={<ApprovalsPage />} />
-        <Route path="/admin/config" element={<ConfigPage />} />
+        <Route path="/activity" element={user?.role !== 'gm' ? <ActivityPage /> : <RoleRedirect />} />
+        <Route path="/approvals" element={user?.role === 'pmo' ? <ApprovalsPage /> : <RoleRedirect />} />
+        <Route path="/admin/config" element={user?.role === 'pmo' ? <ConfigPage /> : <RoleRedirect />} />
       </Route>
       <Route path="*" element={<Navigate to={user ? roleHome[user.role] : '/login'} />} />
     </Routes>

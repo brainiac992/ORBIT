@@ -16,7 +16,7 @@ export interface Context {
   db: typeof db;
 }
 
-const isDev = process.env.NODE_ENV !== 'production' || process.env.DEV_AUTH === 'true';
+const isDev = process.env.NODE_ENV !== 'production';
 
 export async function createContext({ req }: CreateExpressContextOptions): Promise<Context> {
   let user: AuthUser | null = null;
