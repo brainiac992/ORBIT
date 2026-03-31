@@ -380,6 +380,7 @@ export const workstreamRaciAssignments = pgTable('workstream_raci_assignments', 
 // ── Venture Plans (AI-generated) ─────────────────────────
 
 export const planModeEnum = pgEnum('plan_mode', ['comfort', 'tight', 'stretch']);
+export const artifactStageEnum = pgEnum('artifact_stage', ['initiation', 'planning', 'execution', 'monitoring', 'closure']);
 
 export const venturePlans = pgTable('venture_plans', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -391,4 +392,24 @@ export const venturePlans = pgTable('venture_plans', {
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
 }, (table) => [
   index('venture_plans_venture_id_idx').on(table.ventureId),
+]);
+
+// ── Artifacts (project documents) ────────────────────────
+
+export const artifacts = pgTable('artifacts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  ventureId: uuid('venture_id').references(() => ventures.id).notNull(),
+  name: varchar('name', { length: 255 }).notNull(),
+  description: text('description'),
+  stage: artifactStageEnum('stage').notNull(),
+  fileName: varchar('file_name', { length: 500 }).notNull(),
+  fileSize: integer('file_size'),
+  mimeType: varchar('mime_type', { length: 255 }),
+  s3Key: varchar('s3_key', { length: 1000 }),
+  uploadedBy: uuid('uploaded_by').references(() => users.id).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index('artifacts_venture_id_idx').on(table.ventureId),
+  index('artifacts_stage_idx').on(table.stage),
 ]);

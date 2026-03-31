@@ -21,6 +21,7 @@ import { ActivityPage } from './pages/ActivityPage.js';
 import { ApprovalsPage } from './pages/ApprovalsPage.js';
 import { ConfigPage } from './pages/ConfigPage.js';
 import { AIPlanPage } from './pages/AIPlanPage.js';
+import { ArtifactsPage } from './pages/ArtifactsPage.js';
 import { VentureLayout } from './components/VentureLayout.js';
 
 const roleHome: Record<string, string> = {
@@ -52,6 +53,7 @@ function AppInner() {
           <Route path="resources" element={<ResourcesPage />} />
           <Route path="update" element={<WeeklyUpdatePage />} />
           <Route path="setup/plan" element={<AIPlanPage />} />
+          <Route path="artifacts" element={<ArtifactsPage />} />
         </Route>
         <Route path="/activity" element={user?.role !== 'gm' ? <ActivityPage /> : <RoleRedirect />} />
         <Route path="/approvals" element={user?.role === 'pmo' ? <ApprovalsPage /> : <RoleRedirect />} />

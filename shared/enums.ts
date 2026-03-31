@@ -83,6 +83,17 @@ export type AuditAction = (typeof AUDIT_ACTION)[number];
 export const APPROVAL_STATUS = ['pending', 'approved', 'rejected'] as const;
 export type ApprovalStatus = (typeof APPROVAL_STATUS)[number];
 
+export const ARTIFACT_STAGE = ['initiation', 'planning', 'execution', 'monitoring', 'closure'] as const;
+export type ArtifactStage = (typeof ARTIFACT_STAGE)[number];
+
+export const ARTIFACT_STAGE_LABELS: Record<ArtifactStage, string> = {
+  initiation: 'Initiation',
+  planning: 'Planning',
+  execution: 'Execution',
+  monitoring: 'Monitoring & Control',
+  closure: 'Closure',
+};
+
 /**
  * Derives RAG rating from a numeric risk score (likelihood * impact).
  * Score bands: 1-4 = green, 5-12 = amber, 13-25 = red.
