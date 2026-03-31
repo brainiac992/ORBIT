@@ -41,6 +41,15 @@ export const venturesRouter = router({
       return venture;
     }),
 
+  listPMs: protectedProcedure
+    .use(requireRole('pmo'))
+    .query(async ({ ctx }) => {
+      return ctx.db
+        .select({ id: users.id, name: users.name, email: users.email })
+        .from(users)
+        .where(eq(users.role, 'pm'));
+    }),
+
   create: protectedProcedure
     .use(requireRole('pmo'))
     .input(z.object({

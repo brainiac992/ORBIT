@@ -216,7 +216,7 @@ function EmptyState({ icon, text }: { icon: string; text: string }) {
 
 function CreateVentureForm({ open, onClose }: { open: boolean; onClose: () => void }) {
   const utils = trpc.useUtils();
-  const { data: allUsers } = trpc.ventures.list.useQuery(undefined, { enabled: open });
+  const { data: pmUsers } = trpc.ventures.listPMs.useQuery(undefined, { enabled: open });
   const { data: ventureTypes } = trpc.config.listByCategory.useQuery({ category: 'venture_type' }, { enabled: open });
   const create = trpc.ventures.create.useMutation({
     onSuccess: () => {
@@ -272,8 +272,12 @@ function CreateVentureForm({ open, onClose }: { open: boolean; onClose: () => vo
         )}
       </FormField>
       <FormField label="Assigned PM" required>
-        <Input value={form.pmUserId} onChange={e => setForm(f => ({ ...f, pmUserId: e.target.value }))} placeholder="Enter PM user ID (UUID)" />
-        <p className="text-[10px] text-[var(--text-3)] mt-1">Paste the PM's user UUID from the database</p>
+        <Select value={form.pmUserId} onChange={e => setForm(f => ({ ...f, pmUserId: e.target.value }))}>
+          <option value="">Select a PM</option>
+          {pmUsers?.map((pm: any) => (
+            <option key={pm.id} value={pm.id}>{pm.name}</option>
+          ))}
+        </Select>
       </FormField>
       <div className="grid grid-cols-2 gap-4">
         <FormField label="Start Date" required>
