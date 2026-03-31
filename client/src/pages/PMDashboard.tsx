@@ -21,6 +21,14 @@ export function PMDashboard() {
 
   const { venture, latestUpdate, openBlockersCount, openRisksCount } = data;
 
+  // If venture setup is not complete, redirect to first wizard step
+  if (venture.setupStep < 6) {
+    const STEP_ROUTES = ['resources', 'gantt', 'raci', 'risks', 'budget', 'setup/plan'];
+    const route = STEP_ROUTES[venture.setupStep] ?? 'resources';
+    navigate(`/venture/${venture.id}/${route}`, { replace: true });
+    return null;
+  }
+
   return (
     <div className="p-8 max-w-5xl mx-auto">
       {/* Header */}

@@ -14,6 +14,7 @@ import { exportRouter } from './export.js';
 import { ganttRouter } from './gantt.js';
 import { configRouter } from './config.js';
 import { raciRouter } from './raci.js';
+import { wizardRouter } from './wizard.js';
 
 export const appRouter = router({
   ventures: venturesRouter,
@@ -31,6 +32,7 @@ export const appRouter = router({
   gantt: ganttRouter,
   config: configRouter,
   raci: raciRouter,
+  wizard: wizardRouter,
 });
 
 export type AppRouter = typeof appRouter;

@@ -11,6 +11,7 @@ import {
   pgEnum,
   index,
   uniqueIndex,
+  jsonb,
 } from 'drizzle-orm/pg-core';
 
 // ── Enums ──────────────────────────────────────────────────
@@ -62,6 +63,7 @@ export const ventures = pgTable('ventures', {
   completionPct: integer('completion_pct').default(0).notNull(),
   approvedBudget: numeric('approved_budget', { precision: 15, scale: 2 }),
   budgetLocked: boolean('budget_locked').default(false).notNull(),
+  setupStep: integer('setup_step').default(0).notNull(),
   createdBy: uuid('created_by').references(() => users.id).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
@@ -373,4 +375,20 @@ export const workstreamRaciAssignments = pgTable('workstream_raci_assignments', 
   index('raci_workstream_id_idx').on(table.workstreamId),
   index('raci_resource_id_idx').on(table.resourceId),
   uniqueIndex('raci_ws_resource_role_idx').on(table.workstreamId, table.resourceId, table.raciRole),
+]);
+
+// ── Venture Plans (AI-generated) ─────────────────────────
+
+export const planModeEnum = pgEnum('plan_mode', ['comfort', 'tight', 'stretch']);
+
+export const venturePlans = pgTable('venture_plans', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  ventureId: uuid('venture_id').references(() => ventures.id).notNull(),
+  mode: planModeEnum('mode').notNull(),
+  summary: text('summary').notNull(),
+  payload: jsonb('payload').notNull(),  // full plan JSON: milestones, schedule, resource alloc, budget dist
+  selected: boolean('selected').default(false).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index('venture_plans_venture_id_idx').on(table.ventureId),
 ]);

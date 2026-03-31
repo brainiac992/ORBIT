@@ -20,6 +20,8 @@ import { WeeklyUpdatePage } from './pages/WeeklyUpdate.js';
 import { ActivityPage } from './pages/ActivityPage.js';
 import { ApprovalsPage } from './pages/ApprovalsPage.js';
 import { ConfigPage } from './pages/ConfigPage.js';
+import { AIPlanPage } from './pages/AIPlanPage.js';
+import { VentureLayout } from './components/VentureLayout.js';
 
 const roleHome: Record<string, string> = {
   gm: '/dashboard/gm',
@@ -39,15 +41,18 @@ function AppInner() {
         <Route path="/dashboard/gm" element={user?.role === 'gm' ? <GMDashboard /> : <RoleRedirect />} />
         <Route path="/dashboard/pmo" element={user?.role === 'pmo' ? <PMODashboard /> : <RoleRedirect />} />
         <Route path="/dashboard/pm" element={user?.role === 'pm' ? <PMDashboard /> : <RoleRedirect />} />
-        <Route path="/venture/:ventureId/plan" element={<ProjectPlanPage />} />
-        <Route path="/venture/:ventureId/gantt" element={<GanttPage />} />
-        <Route path="/venture/:ventureId/budget" element={<BudgetPage />} />
-        <Route path="/venture/:ventureId/progress" element={<ProgressPage />} />
-        <Route path="/venture/:ventureId/risks" element={<RisksPage />} />
-        <Route path="/venture/:ventureId/issues" element={<IssuesPage />} />
-        <Route path="/venture/:ventureId/raci" element={<RaciPage />} />
-        <Route path="/venture/:ventureId/resources" element={<ResourcesPage />} />
-        <Route path="/venture/:ventureId/update" element={<WeeklyUpdatePage />} />
+        <Route path="/venture/:ventureId" element={<VentureLayout />}>
+          <Route path="plan" element={<ProjectPlanPage />} />
+          <Route path="gantt" element={<GanttPage />} />
+          <Route path="budget" element={<BudgetPage />} />
+          <Route path="progress" element={<ProgressPage />} />
+          <Route path="risks" element={<RisksPage />} />
+          <Route path="issues" element={<IssuesPage />} />
+          <Route path="raci" element={<RaciPage />} />
+          <Route path="resources" element={<ResourcesPage />} />
+          <Route path="update" element={<WeeklyUpdatePage />} />
+          <Route path="setup/plan" element={<AIPlanPage />} />
+        </Route>
         <Route path="/activity" element={user?.role !== 'gm' ? <ActivityPage /> : <RoleRedirect />} />
         <Route path="/approvals" element={user?.role === 'pmo' ? <ApprovalsPage /> : <RoleRedirect />} />
         <Route path="/admin/config" element={user?.role === 'pmo' ? <ConfigPage /> : <RoleRedirect />} />
