@@ -33,6 +33,13 @@ async function seed() {
     role: 'pm',
   }).returning();
 
+  const [pm3] = await db.insert(users).values({
+    azureOid: 'seed-pm-003',
+    email: 'testpm@adres.ae',
+    name: 'Test PM',
+    role: 'pm',
+  }).returning();
+
   // ── Resources ──────────────────────────────────────
   const [res1] = await db.insert(resources).values({
     name: 'Ahmed Rahman',
@@ -163,7 +170,7 @@ async function seed() {
   ]);
 
   console.log('Seed complete.');
-  console.log('  Users: GM, PMO, 2 PMs');
+  console.log('  Users: GM, PMO, 3 PMs');
   console.log('  Resources: 2 internal, 1 external');
   console.log('  Ventures: DARI.AE, ADREC Property Platform');
   console.log('  Workstreams: 4 total across 2 ventures');

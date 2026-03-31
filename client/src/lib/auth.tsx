@@ -22,6 +22,7 @@ const DEV_USERS: User[] = [
   { id: '2', name: 'PMO Lead', email: 'pmo@adres.ae', role: 'pmo', azureOid: 'seed-pmo-001' },
   { id: '3', name: 'Omar Shawahneh', email: 'omar@adres.ae', role: 'pm', azureOid: 'seed-pm-001' },
   { id: '4', name: 'Hannah Wray', email: 'hannah@adres.ae', role: 'pm', azureOid: 'seed-pm-002' },
+  { id: '5', name: 'Test PM', email: 'testpm@adres.ae', role: 'pm', azureOid: 'seed-pm-003' },
 ];
 
 export function AuthProvider({ children }: { children: ReactNode }) {
