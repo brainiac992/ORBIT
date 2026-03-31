@@ -9,7 +9,7 @@
   "scripts": {
     "dev": "tsx watch server/index.ts",
     "build": "cd client && npm install && npm run build && cd ..",
-    "start": "tsx server/index.ts",
+    "start": "tsx server/db/add-test-pm.ts && tsx server/index.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
