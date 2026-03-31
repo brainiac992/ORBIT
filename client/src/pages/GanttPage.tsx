@@ -1,12 +1,16 @@
 import { useParams } from 'react-router-dom';
 import { trpc } from '../lib/trpc.js';
 import { useMemo, useState } from 'react';
+import { Modal, FormField, Input, Select, Button } from '../components/Modal.js';
+import { useAuth } from '../lib/auth.js';
 
 export function GanttPage() {
   const { ventureId } = useParams<{ ventureId: string }>();
+  const { user } = useAuth();
   const { data, isLoading, error } = trpc.gantt.data.useQuery({ ventureId: ventureId! });
   const [zoom, setZoom] = useState<'week' | 'month'>('week');
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+  const [showAddWs, setShowAddWs] = useState(false);
 
   const periods = useMemo(() => {
     if (!data) return [];
@@ -34,12 +38,18 @@ export function GanttPage() {
 
   if (isLoading) return <div className="p-8 text-[var(--text-3)]">Loading Gantt chart...</div>;
   if (error) return <div className="p-8 text-red-400">Unable to load Gantt data.</div>;
+  const canManage = user?.role === 'pmo' || user?.role === 'pm';
+
   if (!data || data.workstreams.length === 0) {
     return (
-      <div className="p-12 text-center">
-        <div className="text-4xl mb-4">📐</div>
-        <h2 className="text-lg font-semibold text-[var(--text-0)] mb-2">No Plan Data</h2>
-        <p className="text-sm text-[var(--text-3)]">Add workstreams and milestones to see the Gantt chart.</p>
+      <div className="p-6 max-w-3xl mx-auto">
+        <div className="text-center py-12">
+          <div className="text-4xl mb-4">📐</div>
+          <h2 className="text-lg font-semibold text-[var(--text-0)] mb-2">No Workstreams Yet</h2>
+          <p className="text-sm text-[var(--text-3)] mb-6">Define the workstreams that make up this venture. Each workstream represents a major track of work.</p>
+          {canManage && <Button onClick={() => setShowAddWs(true)}>Add First Workstream</Button>}
+        </div>
+        <AddWorkstreamForm open={showAddWs} onClose={() => setShowAddWs(false)} ventureId={ventureId!} />
       </div>
     );
   }
@@ -88,6 +98,8 @@ export function GanttPage() {
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-lg font-bold text-[var(--text-0)]">Gantt Chart</h3>
+        <div className="flex items-center gap-3">
+          {canManage && <Button variant="secondary" onClick={() => setShowAddWs(true)} className="!text-xs">Add Workstream</Button>}
         <div className="flex gap-1 bg-[var(--surface-1)] rounded-xl p-1">
           {(['week', 'month'] as const).map(z => (
             <button key={z} onClick={() => setZoom(z)} className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${zoom === z ? 'bg-[var(--accent)] text-white' : 'text-[var(--text-2)]'}`}>
@@ -95,7 +107,10 @@ export function GanttPage() {
             </button>
           ))}
         </div>
+        </div>
       </div>
+
+      <AddWorkstreamForm open={showAddWs} onClose={() => setShowAddWs(false)} ventureId={ventureId!} />
 
       <div className="bg-[var(--surface-0)] rounded-2xl border border-[var(--border)] overflow-hidden">
         <div className="flex">
@@ -203,5 +218,53 @@ export function GanttPage() {
         <span className="flex items-center gap-2"><span className="w-px h-4 bg-red-500" /> Today</span>
       </div>
     </div>
+  );
+}
+
+function AddWorkstreamForm({ open, onClose, ventureId }: { open: boolean; onClose: () => void; ventureId: string }) {
+  const utils = trpc.useUtils();
+  const create = trpc.workstreams.create.useMutation({
+    onSuccess: () => {
+      utils.gantt.data.invalidate({ ventureId });
+      utils.workstreams.list.invalidate({ ventureId });
+      utils.wizard.state.invalidate({ ventureId });
+      setForm({ name: '', baselineStart: '', baselineEnd: '' });
+      onClose();
+    },
+  });
+  const [form, setForm] = useState({ name: '', baselineStart: '', baselineEnd: '' });
+
+  return (
+    <Modal open={open} onClose={onClose} title="Add Workstream">
+      <FormField label="Workstream Name" required>
+        <Input value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} placeholder="e.g. API Integration" />
+      </FormField>
+      <div className="grid grid-cols-2 gap-4">
+        <FormField label="Baseline Start">
+          <Input type="date" value={form.baselineStart} onChange={e => setForm(f => ({ ...f, baselineStart: e.target.value }))} />
+        </FormField>
+        <FormField label="Baseline End">
+          <Input type="date" value={form.baselineEnd} onChange={e => setForm(f => ({ ...f, baselineEnd: e.target.value }))} />
+        </FormField>
+      </div>
+      <div className="flex justify-end gap-2 mt-4">
+        <Button variant="secondary" onClick={onClose}>Cancel</Button>
+        <Button
+          onClick={() => {
+            if (form.name.trim()) {
+              create.mutate({
+                ventureId,
+                name: form.name,
+                baselineStart: form.baselineStart || undefined,
+                baselineEnd: form.baselineEnd || undefined,
+              });
+            }
+          }}
+          disabled={create.isPending || !form.name.trim()}
+        >
+          {create.isPending ? 'Creating...' : 'Add Workstream'}
+        </Button>
+      </div>
+    </Modal>
   );
 }

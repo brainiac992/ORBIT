@@ -12,7 +12,7 @@ export function ResourcesPage() {
   const { data, isLoading } = trpc.resources.listForVenture.useQuery({ ventureId: ventureId! });
   const [showAssign, setShowAssign] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
-  const isPMO = user?.role === 'pmo';
+  const canManage = user?.role === 'pmo' || user?.role === 'pm';
 
   if (isLoading) return <div className="p-8 text-[var(--text-3)]">Loading resources...</div>;
 
@@ -20,7 +20,7 @@ export function ResourcesPage() {
     <div className="p-6 max-w-5xl mx-auto">
       <SectionHeader
         title="Resources"
-        action={isPMO ? (
+        action={canManage ? (
           <div className="flex gap-2">
             <Button variant="secondary" onClick={() => setShowCreate(true)}>New Resource</Button>
             <Button onClick={() => setShowAssign(true)}>Assign Resource</Button>
@@ -32,7 +32,7 @@ export function ResourcesPage() {
         <div className="text-center py-12">
           <div className="text-4xl mb-4">👥</div>
           <p className="text-[var(--text-3)] mb-4">No resources assigned to this venture.</p>
-          {isPMO && <Button onClick={() => setShowAssign(true)}>Assign First Resource</Button>}
+          {canManage && <Button onClick={() => setShowAssign(true)}>Assign First Resource</Button>}
         </div>
       ) : (
         <div className="bg-[var(--surface-0)] rounded-2xl border border-[var(--border)] overflow-hidden">

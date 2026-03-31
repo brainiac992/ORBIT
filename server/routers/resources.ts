@@ -8,7 +8,7 @@ import { logAuditDiff } from '../services/audit.js';
 
 export const resourcesRouter = router({
   list: protectedProcedure
-    .use(requireRole('pmo'))
+    .use(requireRole('pmo', 'pm'))
     .query(async ({ ctx }) => {
       return ctx.db.select().from(resources).orderBy(resources.name);
     }),
@@ -39,7 +39,7 @@ export const resourcesRouter = router({
     }),
 
   create: protectedProcedure
-    .use(requireRole('pmo'))
+    .use(requireRole('pmo', 'pm'))
     .input(z.object({
       name: z.string().min(1).max(255),
       type: z.enum(RESOURCE_TYPE),
@@ -53,7 +53,7 @@ export const resourcesRouter = router({
     }),
 
   assign: protectedProcedure
-    .use(requireRole('pmo'))
+    .use(requireRole('pmo', 'pm'))
     .input(z.object({
       resourceId: z.string().uuid(),
       ventureId: z.string().uuid(),
