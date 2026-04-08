@@ -669,27 +669,25 @@ export async function getImportPreview(connectionId: string): Promise<{
 
   for (const project of projects) {
     try {
+    // First page only for preview speed — use total for accurate count
     const epics = await jiraClient.getEpics(conn.instanceUrl, conn.accountEmail, apiToken, project.key);
     epicCount += epics.length;
 
-    // Scan all issue pages for type classification count
-    let allIssues: jiraClient.JiraIssue[] = [];
-    let previewPageToken: string | undefined;
-    do {
-      const page = await jiraClient.getProjectIssues(
-        conn.instanceUrl, conn.accountEmail, apiToken, project.key, previewPageToken
-      );
-      allIssues.push(...page.issues);
-      previewPageToken = page.nextPageToken;
-    } while (previewPageToken);
+    const firstPage = await jiraClient.getProjectIssues(
+      conn.instanceUrl, conn.accountEmail, apiToken, project.key
+    );
 
-    for (const iss of allIssues) {
+    // Classify the first page sample, extrapolate from total
+    for (const iss of firstPage.issues) {
       const { classifyIssue: cls } = await import('./jiraMappers.js');
       const c = cls(iss);
       if (c === 'milestone') storyCount++;
       else if (c === 'risk') riskIssueCount++;
       else if (c === 'issue') blockerCount++;
     }
+    // Add remaining unscanned issues to story count as estimate
+    const remaining = firstPage.total - firstPage.issues.length;
+    if (remaining > 0) storyCount += remaining;
     } catch (err) {
       console.warn(`[importPreview] Skipping project ${project.key}: ${(err as Error).message}`);
       skippedProjects++;
