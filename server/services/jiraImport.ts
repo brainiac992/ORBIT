@@ -85,19 +85,24 @@ function makeJobId(): string {
 // ── Sync system user lookup ─────────────────────────────────────
 
 async function getSyncUserId(): Promise<string> {
-  const [syncUser] = await db
+  const [existing] = await db
     .select({ id: users.id })
     .from(users)
     .where(eq(users.azureOid, SYNC_USER_OID))
     .limit(1);
 
-  if (!syncUser) {
-    throw new Error(
-      'Sync system user (sync@orbit.internal) not found in the database. ' +
-      'Run the seed script to create it before triggering an import.'
-    );
-  }
-  return syncUser.id;
+  if (existing) return existing.id;
+
+  // Auto-create the sync system user if it doesn't exist
+  const [created] = await db.insert(users).values({
+    azureOid: SYNC_USER_OID,
+    email: 'sync@orbit.internal',
+    name: 'Jira Sync',
+    role: 'pmo',
+  }).returning({ id: users.id });
+
+  console.log('[jiraImport] Auto-created sync system user: sync@orbit.internal');
+  return created.id;
 }
 
 // ── Custom status mapping lookup ────────────────────────────────
