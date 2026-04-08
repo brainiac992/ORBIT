@@ -345,19 +345,15 @@ export async function runFullImport(connectionId: string, jobId: string): Promis
         let latestDue: string | null = null;
 
         // Quick scan — we'll fetch full issues below for mapping
-        const { issues: previewIssues, total: issueTotal } = await jiraClient.getProjectIssues(
-          conn.instanceUrl, conn.accountEmail, apiToken, project.key, 0
-        );
-        let allIssuesForProject: typeof previewIssues = [...previewIssues];
-        let offset = previewIssues.length;
-        while (allIssuesForProject.length < issueTotal) {
-          const { issues: nextPage } = await jiraClient.getProjectIssues(
-            conn.instanceUrl, conn.accountEmail, apiToken, project.key, offset
+        let allIssuesForProject: jiraClient.JiraIssue[] = [];
+        let issuePageToken: string | undefined;
+        do {
+          const page = await jiraClient.getProjectIssues(
+            conn.instanceUrl, conn.accountEmail, apiToken, project.key, issuePageToken
           );
-          allIssuesForProject.push(...nextPage);
-          offset += nextPage.length;
-          if (nextPage.length === 0) break;
-        }
+          allIssuesForProject.push(...page.issues);
+          issuePageToken = page.nextPageToken;
+        } while (issuePageToken);
 
         for (const iss of allIssuesForProject) {
           const created = isoDateOnly(iss.fields.created);
@@ -676,21 +672,16 @@ export async function getImportPreview(connectionId: string): Promise<{
     const epics = await jiraClient.getEpics(conn.instanceUrl, conn.accountEmail, apiToken, project.key);
     epicCount += epics.length;
 
-    // Get first page of issues just for type classification count
-    const { issues: projectIssues, total } = await jiraClient.getProjectIssues(
-      conn.instanceUrl, conn.accountEmail, apiToken, project.key, 0
-    );
-    // For preview accuracy, scan all pages
-    let allIssues = [...projectIssues];
-    let offset = projectIssues.length;
-    while (allIssues.length < total) {
-      const { issues: nextPage } = await jiraClient.getProjectIssues(
-        conn.instanceUrl, conn.accountEmail, apiToken, project.key, offset
+    // Scan all issue pages for type classification count
+    let allIssues: jiraClient.JiraIssue[] = [];
+    let previewPageToken: string | undefined;
+    do {
+      const page = await jiraClient.getProjectIssues(
+        conn.instanceUrl, conn.accountEmail, apiToken, project.key, previewPageToken
       );
-      allIssues.push(...nextPage);
-      offset += nextPage.length;
-      if (nextPage.length === 0) break;
-    }
+      allIssues.push(...page.issues);
+      previewPageToken = page.nextPageToken;
+    } while (previewPageToken);
 
     for (const iss of allIssues) {
       const { classifyIssue: cls } = await import('./jiraMappers.js');

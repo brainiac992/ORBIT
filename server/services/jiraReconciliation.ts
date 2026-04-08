@@ -183,11 +183,17 @@ export async function reconcileConnection(connectionId: string, ventureId?: stri
       const authHeader = 'Basic ' + Buffer.from(`${conn.accountEmail}:${apiToken}`).toString('base64');
       const PAGE_SIZE = 100;
       const recentIssues: jiraClient.JiraIssue[] = [];
-      let fetchOffset = 0;
-      let fetchTotal = Infinity;
+      let pageToken: string | undefined;
 
-      while (recentIssues.length < fetchTotal) {
+      do {
         const url = `${base}/rest/api/3/search/jql`;
+
+        const bodyObj: Record<string, unknown> = {
+          jql: jqlBase,
+          maxResults: PAGE_SIZE,
+          fields: ['summary', 'description', 'issuetype', 'status', 'priority', 'labels', 'duedate', 'resolutiondate', 'created', 'updated', 'parent'],
+        };
+        if (pageToken) bodyObj.nextPageToken = pageToken;
 
         const response = await fetch(url, {
           method: 'POST',
@@ -196,12 +202,7 @@ export async function reconcileConnection(connectionId: string, ventureId?: stri
             'Content-Type': 'application/json',
             Accept: 'application/json',
           },
-          body: JSON.stringify({
-            jql: jqlBase,
-            maxResults: PAGE_SIZE,
-            startAt: fetchOffset,
-            fields: ['summary', 'description', 'issuetype', 'status', 'priority', 'labels', 'duedate', 'resolutiondate', 'created', 'updated', 'parent'],
-          }),
+          body: JSON.stringify(bodyObj),
         });
 
         if (!response.ok) {
@@ -215,13 +216,10 @@ export async function reconcileConnection(connectionId: string, ventureId?: stri
           break;
         }
 
-        const body = await response.json() as { issues: jiraClient.JiraIssue[]; total: number };
-        const page = body.issues ?? [];
-        recentIssues.push(...page);
-        fetchTotal = body.total ?? 0;
-        fetchOffset += page.length;
-        if (page.length === 0) break; // Safety: empty page means no more results
-      }
+        const body = await response.json() as { issues: jiraClient.JiraIssue[]; total: number; nextPageToken?: string };
+        recentIssues.push(...(body.issues ?? []));
+        pageToken = body.nextPageToken;
+      } while (pageToken);
 
       for (const issue of recentIssues) {
         const newHash = computeSyncHash(issue);

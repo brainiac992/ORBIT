@@ -210,20 +210,27 @@ export async function getProjects(
 }
 
 /**
- * Fetches all issues for a project (excluding epics), paginated.
- * startAt parameter is the pagination offset for chunked import.
- * Returns { issues, total } for the current page.
+ * Fetches all issues for a project (excluding epics), paginated via nextPageToken.
+ * The nextPageToken parameter is for cursor-based pagination (pass null/undefined for first page).
+ * Returns { issues, total, nextPageToken } for the current page.
  */
 export async function getProjectIssues(
   instanceUrl: string,
   email: string,
   token: string,
   projectKey: string,
-  startAt: number = 0,
-): Promise<{ issues: JiraIssue[]; total: number }> {
+  nextPageToken?: string,
+): Promise<{ issues: JiraIssue[]; total: number; nextPageToken?: string }> {
   const base = instanceUrl.replace(/\/$/, '');
   const pageSize = 100;
   const url = `${base}/rest/api/3/search/jql`;
+
+  const bodyObj: Record<string, unknown> = {
+    jql: `project="${projectKey}" AND issuetype!=Epic ORDER BY created ASC`,
+    maxResults: pageSize,
+    fields: ['summary', 'description', 'issuetype', 'status', 'priority', 'labels', 'duedate', 'resolutiondate', 'created', 'updated', 'parent'],
+  };
+  if (nextPageToken) bodyObj.nextPageToken = nextPageToken;
 
   const response = await jiraFetch(
     url,
@@ -234,12 +241,7 @@ export async function getProjectIssues(
         'Content-Type': 'application/json',
         Accept: 'application/json',
       },
-      body: JSON.stringify({
-        jql: `project="${projectKey}" AND issuetype!=Epic ORDER BY created ASC`,
-        maxResults: pageSize,
-        startAt,
-        fields: ['summary', 'description', 'issuetype', 'status', 'priority', 'labels', 'duedate', 'resolutiondate', 'created', 'updated', 'parent'],
-      }),
+      body: JSON.stringify(bodyObj),
     },
     `getProjectIssues(${projectKey})`,
   );
@@ -251,8 +253,8 @@ export async function getProjectIssues(
     );
   }
 
-  const body = await response.json() as { issues: JiraIssue[]; total: number };
-  return { issues: body.issues ?? [], total: body.total ?? 0 };
+  const body = await response.json() as { issues: JiraIssue[]; total: number; nextPageToken?: string };
+  return { issues: body.issues ?? [], total: body.total ?? 0, nextPageToken: body.nextPageToken };
 }
 
 /**
@@ -267,11 +269,17 @@ export async function getEpics(
   const base = instanceUrl.replace(/\/$/, '');
   const pageSize = 50;
   const all: JiraIssue[] = [];
-  let startAt = 0;
-  let total = Infinity;
+  let pageToken: string | undefined;
 
-  while (startAt < total) {
+  while (true) {
     const url = `${base}/rest/api/3/search/jql`;
+
+    const bodyObj: Record<string, unknown> = {
+      jql: `project="${projectKey}" AND issuetype=Epic ORDER BY created ASC`,
+      maxResults: pageSize,
+      fields: ['summary', 'description', 'status', 'aggregateprogress', 'created', 'duedate'],
+    };
+    if (pageToken) bodyObj.nextPageToken = pageToken;
 
     const response = await jiraFetch(
       url,
@@ -282,25 +290,17 @@ export async function getEpics(
           'Content-Type': 'application/json',
           Accept: 'application/json',
         },
-        body: JSON.stringify({
-          jql: `project="${projectKey}" AND issuetype=Epic ORDER BY created ASC`,
-          maxResults: pageSize,
-          startAt,
-          fields: ['summary', 'description', 'status', 'aggregateprogress', 'created', 'duedate'],
-        }),
+        body: JSON.stringify(bodyObj),
       },
       `getEpics(${projectKey})`,
     );
 
     if (!response.ok) {
-      // HTTP 400 usually means "Epic" issue type doesn't exist in this project
-      // (e.g. team-managed projects with custom type names). Treat as zero epics.
       if (response.status === 400) {
         let detail = '';
         try { detail = await response.text(); } catch { /* ignore */ }
         console.warn(
-          `[getEpics] Jira returned HTTP 400 for project ${projectKey} — ` +
-          `"Epic" issue type may not exist in this project. Returning empty list. Detail: ${detail}`
+          `[getEpics] Jira returned HTTP 400 for project ${projectKey}. Returning empty list. Detail: ${detail}`
         );
         return all;
       }
@@ -309,11 +309,10 @@ export async function getEpics(
       );
     }
 
-    const body = await response.json() as { issues: JiraIssue[]; total: number };
+    const body = await response.json() as { issues: JiraIssue[]; total: number; nextPageToken?: string };
     all.push(...(body.issues ?? []));
-    total = body.total ?? 0;
-    startAt += pageSize;
-    if (all.length >= total) break;
+    if (!body.nextPageToken || all.length >= (body.total ?? 0)) break;
+    pageToken = body.nextPageToken;
   }
 
   return all;
