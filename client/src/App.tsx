@@ -23,6 +23,10 @@ import { ConfigPage } from './pages/ConfigPage.js';
 import { AIPlanPage } from './pages/AIPlanPage.js';
 import { ArtifactsPage } from './pages/ArtifactsPage.js';
 import { VentureLayout } from './components/VentureLayout.js';
+import { JiraSettingsPage } from './pages/JiraSettingsPage.js';
+import { JiraImportPage } from './pages/JiraImportPage.js';
+import { JiraSyncDashboard } from './pages/JiraSyncDashboard.js';
+import { JiraStatusMappingsPage } from './pages/JiraStatusMappingsPage.js';
 
 const roleHome: Record<string, string> = {
   gm: '/dashboard/gm',
@@ -58,6 +62,10 @@ function AppInner() {
         <Route path="/activity" element={user?.role !== 'gm' ? <ActivityPage /> : <RoleRedirect />} />
         <Route path="/approvals" element={user?.role === 'pmo' ? <ApprovalsPage /> : <RoleRedirect />} />
         <Route path="/admin/config" element={user?.role === 'pmo' ? <ConfigPage /> : <RoleRedirect />} />
+        <Route path="/settings/jira" element={user?.role === 'pmo' ? <JiraSettingsPage /> : <RoleRedirect />} />
+        <Route path="/settings/jira/import" element={user?.role === 'pmo' ? <JiraImportPage /> : <RoleRedirect />} />
+        <Route path="/settings/jira/sync" element={user?.role === 'pmo' ? <JiraSyncDashboard /> : <RoleRedirect />} />
+        <Route path="/settings/jira/mappings" element={user?.role === 'pmo' ? <JiraStatusMappingsPage /> : <RoleRedirect />} />
       </Route>
       <Route path="*" element={<Navigate to={user ? roleHome[user.role] : '/login'} />} />
     </Routes>

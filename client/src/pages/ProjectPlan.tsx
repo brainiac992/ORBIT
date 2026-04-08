@@ -5,14 +5,27 @@ import { Modal, FormField, Input, Select, Button } from '../components/Modal.js'
 import { useAuth } from '../lib/auth.js';
 import { formatDate } from '../lib/format.js';
 import { useState, useMemo } from 'react';
+import { JiraSyncPanel } from '../components/JiraSyncPanel.js';
+import { JiraManagedBanner } from '../components/JiraManagedBanner.js';
 
 export function ProjectPlanPage() {
   const { ventureId } = useParams<{ ventureId: string }>();
   const { user } = useAuth();
   const { data: workstreams, isLoading } = trpc.workstreams.list.useQuery({ ventureId: ventureId! });
   const { data: raciAssignments } = trpc.raci.listForVenture.useQuery({ ventureId: ventureId! });
+  const { data: venture } = trpc.ventures.get.useQuery({ id: ventureId! }, { enabled: !!ventureId });
   const [showAddWs, setShowAddWs] = useState(false);
   const isGM = user?.role === 'gm';
+
+  const isJiraManaged = !!(venture?.jiraProjectKey && venture?.jiraConnectionId);
+  const canEdit = !isGM && !isJiraManaged;
+
+  // Fetch connection to get instanceUrl for Jira links — PMO only; graceful null for other roles
+  const { data: jiraConnection } = trpc.jira.getConnection.useQuery(undefined, {
+    enabled: user?.role === 'pmo' && isJiraManaged,
+    retry: 0,
+  });
+  const instanceUrl = jiraConnection?.instanceUrl ?? null;
 
   // Build RACI lookup: workstreamId -> role -> resourceName[]
   const raciByWs = useMemo(() => {
@@ -34,8 +47,54 @@ export function ProjectPlanPage() {
     <div className="p-6 max-w-5xl mx-auto">
       <SectionHeader
         title="Project Plan"
-        action={!isGM ? <Button onClick={() => setShowAddWs(true)}>Add Workstream</Button> : undefined}
+        action={canEdit ? <Button onClick={() => setShowAddWs(true)}>Add Workstream</Button> : undefined}
       />
+
+      {/* Jira sync panel — shown to all roles when venture is Jira-linked */}
+      {venture && isJiraManaged && (
+        <div className="mb-4">
+          <JiraSyncPanel
+            ventureId={ventureId!}
+            jiraProjectKey={venture.jiraProjectKey}
+            jiraSyncEnabled={venture.jiraSyncEnabled ?? false}
+            instanceUrl={instanceUrl}
+          />
+        </div>
+      )}
+
+      {/* Sync paused indicator on venture page (FR-035) */}
+      {isJiraManaged && venture?.jiraSyncEnabled === false && (
+        <div
+          className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/30 rounded-xl px-4 py-2.5 mb-4 text-xs text-amber-400"
+          role="status"
+          aria-live="polite"
+        >
+          <span aria-hidden="true">⏸</span>
+          <span className="font-medium">Sync Paused</span>
+          <span className="text-[var(--text-3)]">— Jira sync is currently disabled for this venture. Data may be out of date.</span>
+        </div>
+      )}
+
+      {/* Jira managed banner — PM/PMO: read-only notice */}
+      {isJiraManaged && !isGM && (
+        <div className="mb-4">
+          <JiraManagedBanner
+            jiraProjectKey={venture!.jiraProjectKey!}
+            instanceUrl={instanceUrl}
+          />
+        </div>
+      )}
+
+      {/* Jira managed banner — GM: informational read-only variant (FR-033 / Medium 8) */}
+      {isJiraManaged && isGM && (
+        <div className="mb-4">
+          <JiraManagedBanner
+            jiraProjectKey={venture!.jiraProjectKey!}
+            instanceUrl={instanceUrl}
+            readOnly
+          />
+        </div>
+      )}
 
       {(!workstreams || workstreams.length === 0) ? (
         <div className="text-center py-12">
@@ -45,7 +104,7 @@ export function ProjectPlanPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {workstreams.map(ws => <WorkstreamRow key={ws.id} workstream={ws} ventureId={ventureId!} isGM={isGM} raciMap={raciByWs.get(ws.id)} />)}
+          {workstreams.map(ws => <WorkstreamRow key={ws.id} workstream={ws} ventureId={ventureId!} isGM={isGM} isJiraManaged={isJiraManaged} raciMap={raciByWs.get(ws.id)} />)}
         </div>
       )}
 
@@ -54,7 +113,20 @@ export function ProjectPlanPage() {
   );
 }
 
-function WorkstreamRow({ workstream, ventureId, isGM, raciMap }: { workstream: any; ventureId: string; isGM: boolean; raciMap?: Map<string, string[]> }) {
+function DeletedInJiraBadge() {
+  return (
+    <span
+      className="inline-flex items-center gap-1 text-[10px] font-medium text-[var(--text-3)] bg-[var(--surface-2)] border border-[var(--border)] rounded-full px-2 py-0.5"
+      aria-label="Deleted in Jira"
+      title="This item was deleted in Jira and is pending removal"
+    >
+      <span aria-hidden="true">&#8856;</span>
+      Deleted in Jira
+    </span>
+  );
+}
+
+function WorkstreamRow({ workstream, ventureId, isGM, isJiraManaged, raciMap }: { workstream: any; ventureId: string; isGM: boolean; isJiraManaged?: boolean; raciMap?: Map<string, string[]> }) {
   const [expanded, setExpanded] = useState(false);
   const [showAddMs, setShowAddMs] = useState(false);
   const [editing, setEditing] = useState(false);
@@ -81,14 +153,17 @@ function WorkstreamRow({ workstream, ventureId, isGM, raciMap }: { workstream: a
   const hasRaci = raciMap && raciMap.size > 0;
 
   return (
-    <div className="bg-[var(--surface-0)] rounded-2xl border border-[var(--border)] overflow-hidden hover:border-[var(--border-hover)] transition-all">
+    <div className={`bg-[var(--surface-0)] rounded-2xl border overflow-hidden hover:border-[var(--border-hover)] transition-all ${workstream.deletedInJira ? 'border-[var(--border)] opacity-60' : 'border-[var(--border)]'}`}>
       <button
         onClick={() => setExpanded(!expanded)}
         className="w-full text-start px-5 py-4 flex items-center gap-4 hover:bg-[var(--surface-1)] transition-colors"
       >
         <span className="text-xs text-[var(--text-3)]">{expanded ? '▼' : '▶'}</span>
         <div className="flex-1">
-          <div className="font-medium text-[var(--text-0)]">{workstream.name}</div>
+          <div className="flex items-center gap-2">
+            <span className={`font-medium ${workstream.deletedInJira ? 'text-[var(--text-3)] line-through' : 'text-[var(--text-0)]'}`}>{workstream.name}</span>
+            {workstream.deletedInJira && <DeletedInJiraBadge />}
+          </div>
           <div className="text-xs text-[var(--text-3)] mt-0.5">
             Baseline: {formatDate(workstream.baselineStart)} → {formatDate(workstream.baselineEnd)}
             {workstream.actualStart && <span className="ms-3">Actual: {formatDate(workstream.actualStart)} → {workstream.actualEnd ? formatDate(workstream.actualEnd) : 'ongoing'}</span>}
@@ -125,7 +200,7 @@ function WorkstreamRow({ workstream, ventureId, isGM, raciMap }: { workstream: a
 
       {expanded && (
         <div className="border-t border-[var(--border)]">
-          {!isGM && (
+          {!isGM && !isJiraManaged && (
             <div className="px-5 py-3 bg-[var(--surface-1)] border-b border-[var(--border)]">
               {editing ? (
                 <div>
@@ -188,9 +263,10 @@ function MilestoneRow({ milestone, isGM }: { milestone: any; isGM: boolean }) {
   const icon = milestone.status === 'achieved' ? '✅' : milestone.status === 'overdue' ? '⚠️' : '◯';
 
   return (
-    <div className="flex items-center gap-3 text-sm py-2 px-3 rounded-xl hover:bg-[var(--surface-1)] transition-colors">
+    <div className={`flex items-center gap-3 text-sm py-2 px-3 rounded-xl hover:bg-[var(--surface-1)] transition-colors ${milestone.deletedInJira ? 'opacity-60' : ''}`}>
       <span className="text-xs">{icon}</span>
-      <span className="flex-1 text-[var(--text-1)]">{milestone.name}</span>
+      <span className={`flex-1 ${milestone.deletedInJira ? 'text-[var(--text-3)] line-through' : 'text-[var(--text-1)]'}`}>{milestone.name}</span>
+      {milestone.deletedInJira && <DeletedInJiraBadge />}
       <span className="text-xs text-[var(--text-3)] ltr-num">{formatDate(milestone.dueDate)}</span>
       {milestone.actualCompletionDate && (
         <span className="text-xs text-emerald-400 ltr-num">Done: {formatDate(milestone.actualCompletionDate)}</span>

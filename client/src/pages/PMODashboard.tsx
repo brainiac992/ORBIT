@@ -5,6 +5,7 @@ import { HealthDot, StatusBadge, KpiCard, SectionHeader } from '../components/St
 import { Modal, FormField, Input, TextArea, Select, Button } from '../components/Modal.js';
 import { useExportPortfolio } from '../hooks/useExport.js';
 import { formatDate, daysSince } from '../lib/format.js';
+import { JiraSyncBadge } from '../components/JiraSyncBadge.js';
 
 type Tab = 'ventures' | 'escalations' | 'decisions' | 'resources';
 
@@ -103,7 +104,18 @@ function VenturesTable({ ventures, onSelect }: { ventures: any[]; onSelect: (id:
                 className="border-t border-[var(--border)] hover:bg-[var(--surface-1)] cursor-pointer transition-colors animate-in"
                 style={{ animationDelay: `${i * 30}ms` }}
               >
-                <td className="px-5 py-3.5 font-medium text-[var(--text-0)]">{v.name}</td>
+                <td className="px-5 py-3.5 font-medium text-[var(--text-0)]">
+                  <span className="flex items-center gap-2">
+                    {v.name}
+                    {v.jiraProjectKey && (
+                      <JiraSyncBadge
+                        lastSyncedAt={v.jiraLastSyncedAt}
+                        hasError={v.jiraHasError ?? false}
+                        jiraProjectKey={v.jiraProjectKey}
+                      />
+                    )}
+                  </span>
+                </td>
                 <td className="px-5 py-3.5 text-[var(--text-2)]">{v.pmName}</td>
                 <td className="px-5 py-3.5"><HealthDot health={v.health} size="sm" /></td>
                 <td className="px-5 py-3.5">

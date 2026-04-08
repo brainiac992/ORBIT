@@ -16,6 +16,7 @@ import { configRouter } from './config.js';
 import { raciRouter } from './raci.js';
 import { wizardRouter } from './wizard.js';
 import { artifactsRouter } from './artifacts.js';
+import { jiraRouter } from './jira.js';
 
 export const appRouter = router({
   ventures: venturesRouter,
@@ -35,6 +36,7 @@ export const appRouter = router({
   raci: raciRouter,
   wizard: wizardRouter,
   artifacts: artifactsRouter,
+  jira: jiraRouter,
 });
 
 export type AppRouter = typeof appRouter;

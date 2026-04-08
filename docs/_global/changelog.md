@@ -1,5 +1,16 @@
 # ADRES PMO — Changelog
 
+## 2026-04-08 — Jira Cloud Integration (Jira → ORBIT, one-way)
+- One-way sync from Jira Cloud to ORBIT via API token + inbound webhooks
+- Initial import: all Jira projects become ORBIT ventures (deletes all existing ORBIT data first)
+- Entity mapping: Project→Venture, Epic→Workstream, Story/Task→Milestone, Risk issue→Risk, Blocker issue→Issue, Epic comments→Progress Updates
+- Ongoing sync: Jira webhooks (real-time) + 15-minute reconciliation job. Jira is always the source of truth.
+- New pages: /settings/jira, /settings/jira/import, /settings/jira/sync, /settings/jira/mappings
+- Requires JIRA_ENCRYPTION_KEY env var in Railway — generate with: openssl rand -hex 32
+- Advisory (future sprint): sync log retention policy, sync-pause catch-up, pgEnum for status/level columns
+
+---
+
 ## ADRES PMO Platform v1 — 2026-03-26
 **Pipeline Run:** Complete ✅
 **Phases Run:** 1 (PM → BA → PO → PM Summary → Architect), 2 (UI Designer + Content Writer), 3 (DB + Backend + Frontend), 4 (QA + Security), 5 (Data Review), 7 (Documentation)

@@ -48,6 +48,27 @@ export const users = pgTable('users', {
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
 });
 
+// ── Jira Connections ──────────────────────────────────────
+// Must be declared before ventures so the FK reference resolves.
+
+export const jiraConnections = pgTable('jira_connections', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  instanceUrl: varchar('instance_url', { length: 500 }).notNull(),
+  accountEmail: varchar('account_email', { length: 255 }).notNull(),
+  apiTokenEncrypted: text('api_token_encrypted').notNull(),
+  webhookSecret: varchar('webhook_secret', { length: 255 }).notNull(),
+  webhookId: varchar('webhook_id', { length: 255 }),
+  status: varchar('status', { length: 50 }).notNull().default('connected'),
+  importLock: boolean('import_lock').notNull().default(false),
+  lastValidatedAt: timestamp('last_validated_at', { withTimezone: true }),
+  lastError: text('last_error'),
+  createdBy: uuid('created_by').references(() => users.id).notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index('jira_connections_status_idx').on(table.status),
+]);
+
 // ── Ventures ───────────────────────────────────────────────
 
 export const ventures = pgTable('ventures', {
@@ -67,9 +88,14 @@ export const ventures = pgTable('ventures', {
   createdBy: uuid('created_by').references(() => users.id).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  // ── Jira integration columns (additive) ─────────────────
+  jiraConnectionId: uuid('jira_connection_id').references(() => jiraConnections.id),
+  jiraProjectKey: varchar('jira_project_key', { length: 50 }),
+  jiraSyncEnabled: boolean('jira_sync_enabled').notNull().default(true),
 }, (table) => [
   index('ventures_pm_user_id_idx').on(table.pmUserId),
   index('ventures_status_idx').on(table.status),
+  index('ventures_jira_connection_id_idx').on(table.jiraConnectionId),
 ]);
 
 // ── Workstreams ────────────────────────────────────────────
@@ -88,6 +114,8 @@ export const workstreams = pgTable('workstreams', {
   sortOrder: integer('sort_order').default(0).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  // ── Jira integration columns (additive) ─────────────────
+  deletedInJira: boolean('deleted_in_jira').notNull().default(false),
 }, (table) => [
   index('workstreams_venture_id_idx').on(table.ventureId),
 ]);
@@ -104,6 +132,8 @@ export const milestones = pgTable('milestones', {
   notes: text('notes'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  // ── Jira integration columns (additive) ─────────────────
+  deletedInJira: boolean('deleted_in_jira').notNull().default(false),
 }, (table) => [
   index('milestones_workstream_id_idx').on(table.workstreamId),
 ]);
@@ -261,6 +291,8 @@ export const risks = pgTable('risks', {
   createdBy: uuid('created_by').references(() => users.id).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  // ── Jira integration columns (additive) ─────────────────
+  deletedInJira: boolean('deleted_in_jira').notNull().default(false),
 }, (table) => [
   index('risks_venture_id_idx').on(table.ventureId),
   index('risks_escalated_idx').on(table.escalated),
@@ -285,6 +317,8 @@ export const issues = pgTable('issues', {
   createdBy: uuid('created_by').references(() => users.id).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+  // ── Jira integration columns (additive) ─────────────────
+  deletedInJira: boolean('deleted_in_jira').notNull().default(false),
 }, (table) => [
   index('issues_venture_id_idx').on(table.ventureId),
   index('issues_escalated_idx').on(table.escalated),
@@ -412,4 +446,75 @@ export const artifacts = pgTable('artifacts', {
 }, (table) => [
   index('artifacts_venture_id_idx').on(table.ventureId),
   index('artifacts_stage_idx').on(table.stage),
+]);
+
+// ── Jira Sync Mappings ────────────────────────────────────
+// One row per Jira issue ↔ ORBIT entity pairing.
+// Insert-or-update on sync; never deleted except by full re-import.
+//
+// Unique constraints:
+//   jira_sync_jira_entity_idx    — prevents one Jira entity mapping to two ORBIT records
+//   jira_sync_orbit_entity_idx   — prevents two Jira entities mapping to the same ORBIT record
+
+export const jiraSyncMappings = pgTable('jira_sync_mappings', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  connectionId: uuid('connection_id').references(() => jiraConnections.id).notNull(),
+  jiraEntityType: varchar('jira_entity_type', { length: 50 }).notNull(),
+  jiraEntityId: varchar('jira_entity_id', { length: 255 }).notNull(),
+  orbitEntityType: varchar('orbit_entity_type', { length: 50 }).notNull(),
+  orbitEntityId: uuid('orbit_entity_id').notNull(),
+  syncedAt: timestamp('synced_at', { withTimezone: true }).defaultNow().notNull(),
+  syncHash: varchar('sync_hash', { length: 64 }),
+}, (table) => [
+  uniqueIndex('jira_sync_jira_entity_idx').on(
+    table.connectionId, table.jiraEntityType, table.jiraEntityId
+  ),
+  // Unique on orbit side: two Jira entities must not map to the same ORBIT record.
+  // This prevents silent last-write-wins corruption when issue reclassification
+  // creates a second mapping row for an already-mapped ORBIT entity.
+  uniqueIndex('jira_sync_orbit_entity_idx').on(table.orbitEntityType, table.orbitEntityId),
+]);
+
+// ── Jira Sync Log (insert-only, append-only) ──────────────
+// Immutable event log — never updated, only inserted.
+// Covers webhook events, reconciliation runs, and import operations.
+
+export const jiraSyncLog = pgTable('jira_sync_log', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  connectionId: uuid('connection_id').references(() => jiraConnections.id).notNull(),
+  ventureId: uuid('venture_id').references(() => ventures.id),
+  eventType: varchar('event_type', { length: 100 }).notNull(),
+  jiraEntityType: varchar('jira_entity_type', { length: 50 }),
+  jiraEntityId: varchar('jira_entity_id', { length: 255 }),
+  orbitEntityType: varchar('orbit_entity_type', { length: 50 }),
+  orbitEntityId: uuid('orbit_entity_id'),
+  level: varchar('level', { length: 20 }).notNull().default('info'),
+  message: text('message').notNull(),
+  payload: jsonb('payload'),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  index('jira_sync_log_connection_id_idx').on(table.connectionId),
+  index('jira_sync_log_venture_id_idx').on(table.ventureId),
+  index('jira_sync_log_created_at_idx').on(table.createdAt),
+  index('jira_sync_log_level_idx').on(table.level),
+  // Composite index for dashboard aggregation queries that filter on all three columns
+  // (connection_id, venture_id, level). Without this, the error COUNT per venture
+  // degrades to a sequential scan as the log grows past ~1M rows.
+  index('jira_sync_log_conn_venture_level_idx').on(table.connectionId, table.ventureId, table.level),
+]);
+
+// ── Jira Status Mappings ──────────────────────────────────
+// PMO-configurable map: Jira status string → ORBIT status string.
+// Unique per connection + jira status name (entity-type-agnostic at DB level;
+// application enforces per-entity semantics at query time).
+
+export const jiraStatusMappings = pgTable('jira_status_mappings', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  connectionId: uuid('connection_id').references(() => jiraConnections.id).notNull(),
+  jiraStatusName: varchar('jira_status_name', { length: 255 }).notNull(),
+  orbitStatus: varchar('orbit_status', { length: 50 }).notNull(),
+  updatedBy: uuid('updated_by').references(() => users.id).notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+}, (table) => [
+  uniqueIndex('jira_status_mappings_unique_idx').on(table.connectionId, table.jiraStatusName),
 ]);

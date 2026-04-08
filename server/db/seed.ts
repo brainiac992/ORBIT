@@ -1,8 +1,31 @@
 import { db } from './index.js';
+import { eq } from 'drizzle-orm';
 import { users, ventures, workstreams, milestones, resources, resourceAssignments } from './schema.js';
 
 async function seed() {
   console.log('Seeding database...');
+
+  // ── Jira Sync System User (upsert — must exist before any sync runs) ──
+  // Uses a non-guessable sentinel azureOid that the auth layer must exclude
+  // from interactive login. Role is 'pmo' so it passes PMO-gated procedures.
+  const SYNC_USER_OID = 'sync-system-001';
+  const existingSyncUser = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(eq(users.azureOid, SYNC_USER_OID))
+    .limit(1);
+
+  if (existingSyncUser.length === 0) {
+    await db.insert(users).values({
+      azureOid: SYNC_USER_OID,
+      email: 'sync@orbit.internal',
+      name: 'Jira Sync',
+      role: 'pmo',
+    });
+    console.log('  Sync system user created: sync@orbit.internal');
+  } else {
+    console.log('  Sync system user already exists — skipping.');
+  }
 
   // ── Users ──────────────────────────────────────────
   const [gmUser] = await db.insert(users).values({

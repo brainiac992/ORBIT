@@ -1,7 +1,7 @@
 # ORBIT Platform User Manual
 
 **ADRES PMO Platform**
-Version 1.0 | Last updated: 2026-03-27
+Version 1.1 | Last updated: 2026-04-08
 
 ---
 
@@ -22,6 +22,7 @@ Version 1.0 | Last updated: 2026-03-27
 13. [Activity Log](#13-activity-log)
 14. [Approvals](#14-approvals)
 15. [Configuration](#15-configuration)
+16. [Jira Integration](#16-jira-integration)
 
 ---
 
@@ -982,6 +983,126 @@ If any categories are empty, a **Seed Defaults** button appears in the page head
 - Configure dropdowns before creating resources and ventures so that users have consistent options available.
 - Use the Active toggle to retire options without losing historical data.
 - Sort order controls the position of options in dropdown menus across the platform.
+
+---
+
+## 16. Jira Integration
+
+**What it does:** Connects ORBIT to your Jira Cloud instance so that Jira is always the source of truth. All Jira projects are imported as ORBIT ventures, and ongoing changes in Jira are automatically reflected in ORBIT. ORBIT never pushes changes back to Jira.
+
+**Who can access:** PMO only (settings and configuration). All roles can see sync status indicators on ventures.
+
+---
+
+### 16.1 Prerequisites
+
+Before connecting ORBIT to Jira, ensure the following are in place:
+
+- **Active Jira Cloud account** — your organisation must have a Jira Cloud instance (e.g. `https://yourcompany.atlassian.net`).
+- **Jira API token** — generate one as follows:
+  1. Log in to your Atlassian account at [https://id.atlassian.com](https://id.atlassian.com).
+  2. Click your **profile icon** (top right) → **Manage account**.
+  3. Go to the **Security** tab.
+  4. Under "API token", click **Create and manage API tokens**.
+  5. Click **Create API token**, give it a label (e.g. "ORBIT Integration"), and click **Create**.
+  6. Copy the token immediately — it will not be shown again.
+- **JIRA_ENCRYPTION_KEY environment variable** — ask your system administrator to set this in Railway before you attempt to connect. Without it, the Jira settings page will not function. Your admin can generate the key with: `openssl rand -hex 32`.
+
+---
+
+### 16.2 Connecting ORBIT to Jira
+
+1. In the sidebar, go to **Settings → Jira Integration**.
+2. Enter your **Jira Cloud URL** (e.g. `https://yourcompany.atlassian.net`).
+3. Enter the **email address** associated with your Atlassian account.
+4. Paste the **API token** you generated.
+5. Click **Test Connection** — wait for the green confirmation message before proceeding. If the test fails, double-check your URL, email, and token.
+6. Click **Save & Connect**.
+
+Your credentials are encrypted immediately on save and are never displayed in cleartext again.
+
+---
+
+### 16.3 Running the Initial Import
+
+> **WARNING: The import permanently deletes ALL existing ORBIT ventures, workstreams, milestones, risks, issues, and progress updates before importing from Jira. This cannot be undone. Ensure you do not need to retain any existing ORBIT data before proceeding.**
+
+1. After connecting, go to **Settings → Jira Integration → Import**.
+2. Review the **preview screen** — it shows how many Jira projects will be imported and how much existing ORBIT data will be deleted.
+3. Type **CONFIRM** in the confirmation text box to enable the import button.
+4. Click **Confirm and Import** — a progress bar will track the import in real time.
+5. When the import is complete, you will see a summary of what was created (ventures, workstreams, milestones, etc.). Click **Go to Dashboard** to start using ORBIT with your Jira data.
+
+**If the import fails partway through:** Do not close the browser. Click **Retry Import** on the error screen. The import will restart from scratch — no partial data will remain.
+
+---
+
+### 16.4 Sync Dashboard
+
+The Sync Dashboard shows the live sync health of every connected venture.
+
+1. Go to **Settings → Jira Integration → Sync Dashboard**.
+2. Each venture is listed with a colour-coded status indicator:
+
+| Colour | Meaning |
+|--------|---------|
+| Green | Synced within the last 30 minutes — everything is current |
+| Amber | Last synced between 30 minutes and 2 hours ago, or has never synced yet |
+| Red | Last sync was over 2 hours ago, or a sync error has occurred |
+
+3. Click any **venture row** to expand it and view the detailed sync log, including error messages and timestamps.
+4. Click the **Re-sync** button on any row to force an immediate sync for that venture — useful after resolving an error or making bulk changes in Jira.
+
+---
+
+### 16.5 Pausing and Resuming Sync
+
+You can pause sync for individual ventures without losing your Jira connection configuration.
+
+- On any venture, use the **Jira sync toggle** to pause sync. The toggle is found on the venture row in the Sync Dashboard, or in the venture settings panel.
+- When paused, changes made in Jira will not be reflected in ORBIT automatically.
+- To resume, toggle sync back on.
+
+**Important:** Changes made in Jira during a pause period are not automatically caught up when you resume. After resuming, click **Re-sync** on that venture to pull in any missed changes.
+
+---
+
+### 16.6 Status Mappings
+
+ORBIT maps Jira workflow statuses to its own four statuses: `not_started`, `in_progress`, `complete`, and `on_hold`. Default mappings are applied on import, but you can adjust them at any time.
+
+1. Go to **Settings → Jira Integration → Status Mappings**.
+2. The table shows each Jira status alongside its current ORBIT mapping.
+3. To change a mapping, click the **ORBIT status dropdown** in the row and select the correct status.
+4. Mappings **save automatically** — no save button needed.
+
+Incorrect mappings will cause workstream and milestone statuses to show incorrectly in ORBIT. Review this page after import if status badges look wrong.
+
+---
+
+### 16.7 "Deleted in Jira" Badge
+
+If a Jira issue, epic, or project is deleted in Jira, the corresponding ORBIT entity is not permanently removed. Instead:
+
+- The entity is **greyed out** visually.
+- A **"Deleted in Jira"** badge appears on the entity.
+- The entity remains visible for reference and audit purposes.
+- It is **excluded from active reporting**, KPI counts, and dashboard summaries.
+- It is **not permanently deleted** from ORBIT — your historical data is preserved.
+
+If you see this badge on a venture or entity that should still be active, check whether the corresponding Jira item was accidentally deleted.
+
+---
+
+### 16.8 Troubleshooting
+
+| Problem | Steps to resolve |
+|---------|-----------------|
+| **Sync shows red** | Click the venture row on the Sync Dashboard to expand the error log. Read the error message. Click **Re-sync** to retry. |
+| **Connection broken** (e.g. API token was revoked) | Go to **Settings → Jira Integration → Disconnect**. Generate a new API token in Atlassian, then reconnect using the steps in section 16.2. |
+| **Statuses look wrong after import** | Go to **Settings → Jira Integration → Status Mappings** and correct the mappings. Then trigger a **Re-sync** for affected ventures. |
+| **Need a completely fresh import** | Go to **Settings → Jira Integration → Sync Dashboard** and click **Wipe & Reimport All**. This deletes all ORBIT data and re-runs the full import. The same confirmation requirement applies (type CONFIRM). |
+| **Jira Integration page is blank or shows an error** | The `JIRA_ENCRYPTION_KEY` environment variable may not be set. Ask your system administrator to check Railway and set the variable, then redeploy. |
 
 ---
 
