@@ -318,23 +318,7 @@ export async function runFullImport(connectionId: string, jobId: string): Promis
 
     // ── Step 4: Fetch all Jira projects ──────────────────────
     updateJob('Fetching Jira projects…');
-    const allProjects = await jiraClient.getProjects(conn.instanceUrl, conn.accountEmail, apiToken);
-
-    // Filter to only projects the token can actually search via JQL
-    updateJob('Checking project access…');
-    const projects: jiraClient.JiraProject[] = [];
-    for (const p of allProjects) {
-      if (await jiraClient.canSearchProject(conn.instanceUrl, conn.accountEmail, apiToken, p.key)) {
-        projects.push(p);
-      } else {
-        await writeSyncLog({
-          connectionId,
-          eventType: 'import',
-          level: 'warning',
-          message: `Skipping Jira project ${p.key} — no search access (HTTP 400). Only projects your token can query are imported.`,
-        });
-      }
-    }
+    const projects = await jiraClient.getProjects(conn.instanceUrl, conn.accountEmail, apiToken);
     updateJob('Fetching Jira projects…', 0, projects.length);
 
     if (projects.length === 0) {
@@ -342,7 +326,7 @@ export async function runFullImport(connectionId: string, jobId: string): Promis
         connectionId,
         eventType: 'import',
         level: 'warning',
-        message: 'Import completed but no searchable Jira projects were found. ORBIT is now empty.',
+        message: 'Import completed but no Jira projects were found. ORBIT is now empty.',
       });
       updateJob('Complete — no projects found', 0, 0);
       job.completedAt = new Date();
@@ -664,20 +648,16 @@ export async function getImportPreview(connectionId: string): Promise<{
   const [issueCount] = await db.select({ count: countQuery() }).from(issues);
   const [progressCount] = await db.select({ count: countQuery() }).from(progressUpdates);
 
-  // Count what Jira has (high-level scan) — only projects the token can search
-  const allProjects = await jiraClient.getProjects(conn.instanceUrl, conn.accountEmail, apiToken);
-  const projects: jiraClient.JiraProject[] = [];
-  for (const p of allProjects) {
-    if (await jiraClient.canSearchProject(conn.instanceUrl, conn.accountEmail, apiToken, p.key)) {
-      projects.push(p);
-    }
-  }
+  // Count what Jira has (high-level scan)
+  const projects = await jiraClient.getProjects(conn.instanceUrl, conn.accountEmail, apiToken);
   let epicCount = 0;
   let storyCount = 0;
   let riskIssueCount = 0;
   let blockerCount = 0;
+  let skippedProjects = 0;
 
   for (const project of projects) {
+    try {
     const epics = await jiraClient.getEpics(conn.instanceUrl, conn.accountEmail, apiToken, project.key);
     epicCount += epics.length;
 
@@ -704,6 +684,10 @@ export async function getImportPreview(connectionId: string): Promise<{
       else if (c === 'risk') riskIssueCount++;
       else if (c === 'issue') blockerCount++;
     }
+    } catch (err) {
+      console.warn(`[importPreview] Skipping project ${project.key}: ${(err as Error).message}`);
+      skippedProjects++;
+    }
   }
 
   return {
@@ -716,7 +700,7 @@ export async function getImportPreview(connectionId: string): Promise<{
       progressUpdates: Number(progressCount?.count ?? 0),
     },
     toCreate: {
-      projects: projects.length,
+      projects: projects.length - skippedProjects,
       epics: epicCount,
       stories: storyCount,
       riskIssues: riskIssueCount,
