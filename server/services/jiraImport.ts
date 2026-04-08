@@ -521,18 +521,29 @@ export async function runFullImport(connectionId: string, jobId: string): Promis
         projectsProcessed++;
         updateJob(`Imported project ${projectsProcessed} of ${projects.length}`, projectsProcessed, projects.length);
       } catch (projectErr) {
-        const msg = `Failed to import project ${project.key}: ${(projectErr as Error).message}`;
-        job.errors.push(msg);
-        await writeSyncLog({
-          connectionId,
-          eventType: 'import',
-          level: 'error',
-          message: msg,
-          jiraEntityType: 'project',
-          jiraEntityId: project.id,
-        });
-        // Continue processing remaining projects so all errors are captured,
-        // but the job will be marked failed below if any errors occurred.
+        const errMsg = (projectErr as Error).message;
+        // HTTP 400 = no search access to this project — skip with warning, not error
+        if (errMsg.includes('HTTP 400')) {
+          await writeSyncLog({
+            connectionId,
+            eventType: 'import',
+            level: 'warning',
+            message: `Skipped project ${project.key} — no search access.`,
+            jiraEntityType: 'project',
+            jiraEntityId: project.id,
+          });
+        } else {
+          const msg = `Failed to import project ${project.key}: ${errMsg}`;
+          job.errors.push(msg);
+          await writeSyncLog({
+            connectionId,
+            eventType: 'import',
+            level: 'error',
+            message: msg,
+            jiraEntityType: 'project',
+            jiraEntityId: project.id,
+          });
+        }
       }
     }
 
