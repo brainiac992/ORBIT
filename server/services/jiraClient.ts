@@ -223,17 +223,23 @@ export async function getProjectIssues(
 ): Promise<{ issues: JiraIssue[]; total: number }> {
   const base = instanceUrl.replace(/\/$/, '');
   const pageSize = 100;
-  const jql = encodeURIComponent(`project="${projectKey}" AND issuetype!=Epic ORDER BY created ASC`);
-  const url = `${base}/rest/api/3/search?jql=${jql}&maxResults=${pageSize}&startAt=${startAt}&fields=summary,description,issuetype,status,priority,labels,duedate,resolutiondate,created,updated,parent`;
+  const url = `${base}/rest/api/3/search/jql`;
 
   const response = await jiraFetch(
     url,
     {
-      method: 'GET',
+      method: 'POST',
       headers: {
         Authorization: buildAuthHeader(email, token),
+        'Content-Type': 'application/json',
         Accept: 'application/json',
       },
+      body: JSON.stringify({
+        jql: `project="${projectKey}" AND issuetype!=Epic ORDER BY created ASC`,
+        maxResults: pageSize,
+        startAt,
+        fields: ['summary', 'description', 'issuetype', 'status', 'priority', 'labels', 'duedate', 'resolutiondate', 'created', 'updated', 'parent'],
+      }),
     },
     `getProjectIssues(${projectKey})`,
   );
@@ -265,17 +271,23 @@ export async function getEpics(
   let total = Infinity;
 
   while (startAt < total) {
-    const jql = encodeURIComponent(`project="${projectKey}" AND issuetype=Epic ORDER BY created ASC`);
-    const url = `${base}/rest/api/3/search?jql=${jql}&maxResults=${pageSize}&startAt=${startAt}&fields=summary,description,status,aggregateprogress,created,duedate`;
+    const url = `${base}/rest/api/3/search/jql`;
 
     const response = await jiraFetch(
       url,
       {
-        method: 'GET',
+        method: 'POST',
         headers: {
           Authorization: buildAuthHeader(email, token),
+          'Content-Type': 'application/json',
           Accept: 'application/json',
         },
+        body: JSON.stringify({
+          jql: `project="${projectKey}" AND issuetype=Epic ORDER BY created ASC`,
+          maxResults: pageSize,
+          startAt,
+          fields: ['summary', 'description', 'status', 'aggregateprogress', 'created', 'duedate'],
+        }),
       },
       `getEpics(${projectKey})`,
     );

@@ -187,15 +187,21 @@ export async function reconcileConnection(connectionId: string, ventureId?: stri
       let fetchTotal = Infinity;
 
       while (recentIssues.length < fetchTotal) {
-        const jql = encodeURIComponent(jqlBase);
-        const url = `${base}/rest/api/3/search?jql=${jql}&maxResults=${PAGE_SIZE}&startAt=${fetchOffset}&fields=summary,description,issuetype,status,priority,labels,duedate,resolutiondate,created,updated,parent`;
+        const url = `${base}/rest/api/3/search/jql`;
 
         const response = await fetch(url, {
-          method: 'GET',
+          method: 'POST',
           headers: {
             Authorization: authHeader,
+            'Content-Type': 'application/json',
             Accept: 'application/json',
           },
+          body: JSON.stringify({
+            jql: jqlBase,
+            maxResults: PAGE_SIZE,
+            startAt: fetchOffset,
+            fields: ['summary', 'description', 'issuetype', 'status', 'priority', 'labels', 'duedate', 'resolutiondate', 'created', 'updated', 'parent'],
+          }),
         });
 
         if (!response.ok) {
