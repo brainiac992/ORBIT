@@ -157,6 +157,7 @@ export const dashboardRouter = router({
     .use(requireRole('pmo'))
     .query(async ({ ctx }) => {
       const allVentures = await ctx.db.select().from(ventures).where(ne(ventures.status, 'archived'));
+      console.log(`[dashboard.pmo] Found ${allVentures.length} non-archived ventures for user ${ctx.user.email} (role: ${ctx.user.role})`);
       const pmoPmIds = [...new Set(allVentures.map(v => v.pmUserId))];
       const pmoUsers = pmoPmIds.length > 0
         ? await ctx.db.select().from(users).where(inArray(users.id, pmoPmIds))

@@ -16,7 +16,7 @@
  */
 
 import { db } from '../db/index.js';
-import { eq, and, inArray } from 'drizzle-orm';
+import { eq, and, inArray, sql } from 'drizzle-orm';
 import {
   jiraConnections,
   jiraSyncMappings,
@@ -573,12 +573,16 @@ export async function runFullImport(connectionId: string, jobId: string): Promis
       throw new Error(errMsg);
     }
 
+    // Verify ventures actually exist in DB after import
+    const [ventureCountCheck] = await db.select({ count: sql`count(*)::int` }).from(ventures);
+    console.log(`[jiraImport] Import done. ${projectsProcessed} projects processed. DB venture count: ${ventureCountCheck?.count ?? 'unknown'}`);
+
     await writeSyncLog({
       connectionId,
       eventType: 'import',
       level: 'info',
-      message: `Import complete. ${projectsProcessed} of ${projects.length} projects imported successfully.`,
-      payload: { projectsTotal: projects.length, projectsImported: projectsProcessed },
+      message: `Import complete. ${projectsProcessed} of ${projects.length} projects imported. ${ventureCountCheck?.count ?? 0} ventures in database.`,
+      payload: { projectsTotal: projects.length, projectsImported: projectsProcessed, dbVentureCount: ventureCountCheck?.count },
     });
 
     // Update connection last validated timestamp
