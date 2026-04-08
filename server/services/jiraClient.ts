@@ -210,6 +210,47 @@ export async function getProjects(
 }
 
 /**
+ * Lightweight probe: can we run JQL search against this project?
+ * Returns false if Jira returns 400 (no search permission or invalid project).
+ */
+export async function canSearchProject(
+  instanceUrl: string,
+  email: string,
+  token: string,
+  projectKey: string,
+): Promise<boolean> {
+  const base = instanceUrl.replace(/\/$/, '');
+  const url = `${base}/rest/api/3/search/jql`;
+  const response = await jiraFetch(
+    url,
+    {
+      method: 'POST',
+      headers: {
+        Authorization: buildAuthHeader(email, token),
+        'Content-Type': 'application/json',
+        Accept: 'application/json',
+      },
+      body: JSON.stringify({
+        jql: `project="${projectKey}" ORDER BY created ASC`,
+        maxResults: 0,
+        startAt: 0,
+      }),
+    },
+    `canSearchProject(${projectKey})`,
+  );
+  if (response.ok) return true;
+  if (!response.ok && response.status === 400) {
+    let detail = '';
+    try { detail = await response.text(); } catch { /* ignore */ }
+    console.warn(`[canSearchProject] Skipping project ${projectKey} — HTTP 400. Detail: ${detail}`);
+    return false;
+  }
+  // Non-400 errors (403, 500, etc.) — also skip, don't crash import
+  console.warn(`[canSearchProject] Skipping project ${projectKey} — HTTP ${response.status}`);
+  return false;
+}
+
+/**
  * Fetches all issues for a project (excluding epics), paginated.
  * startAt parameter is the pagination offset for chunked import.
  * Returns { issues, total } for the current page.
@@ -245,41 +286,6 @@ export async function getProjectIssues(
   );
 
   if (!response.ok) {
-    // If 400 due to "Epic" type not existing, retry without the Epic exclusion
-    if (response.status === 400) {
-      let detail = '';
-      try { detail = await response.text(); } catch { /* ignore */ }
-      console.warn(
-        `[getProjectIssues] Jira returned HTTP 400 for project ${projectKey} — ` +
-        `retrying without Epic type filter. Detail: ${detail}`
-      );
-      const fallbackResponse = await jiraFetch(
-        url,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: buildAuthHeader(email, token),
-            'Content-Type': 'application/json',
-            Accept: 'application/json',
-          },
-          body: JSON.stringify({
-            jql: `project="${projectKey}" ORDER BY created ASC`,
-            maxResults: pageSize,
-            startAt,
-            fields: ['summary', 'description', 'issuetype', 'status', 'priority', 'labels', 'duedate', 'resolutiondate', 'created', 'updated', 'parent'],
-          }),
-        },
-        `getProjectIssues(${projectKey}) fallback`,
-      );
-      if (!fallbackResponse.ok) {
-        throw new Error(
-          `[getProjectIssues] Jira returned HTTP ${fallbackResponse.status} for project ${projectKey}. ` +
-          'Verify the project key and API token permissions.'
-        );
-      }
-      const body = await fallbackResponse.json() as { issues: JiraIssue[]; total: number };
-      return { issues: body.issues ?? [], total: body.total ?? 0 };
-    }
     throw new Error(
       `[getProjectIssues] Jira returned HTTP ${response.status} for project ${projectKey}. ` +
       'Verify the project key and API token permissions.'
