@@ -232,7 +232,7 @@ export async function canSearchProject(
       },
       body: JSON.stringify({
         jql: `project="${projectKey}" ORDER BY created ASC`,
-        maxResults: 0,
+        maxResults: 1,
         startAt: 0,
       }),
     },
