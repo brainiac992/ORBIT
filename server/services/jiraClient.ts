@@ -245,6 +245,41 @@ export async function getProjectIssues(
   );
 
   if (!response.ok) {
+    // If 400 due to "Epic" type not existing, retry without the Epic exclusion
+    if (response.status === 400) {
+      let detail = '';
+      try { detail = await response.text(); } catch { /* ignore */ }
+      console.warn(
+        `[getProjectIssues] Jira returned HTTP 400 for project ${projectKey} — ` +
+        `retrying without Epic type filter. Detail: ${detail}`
+      );
+      const fallbackResponse = await jiraFetch(
+        url,
+        {
+          method: 'POST',
+          headers: {
+            Authorization: buildAuthHeader(email, token),
+            'Content-Type': 'application/json',
+            Accept: 'application/json',
+          },
+          body: JSON.stringify({
+            jql: `project="${projectKey}" ORDER BY created ASC`,
+            maxResults: pageSize,
+            startAt,
+            fields: ['summary', 'description', 'issuetype', 'status', 'priority', 'labels', 'duedate', 'resolutiondate', 'created', 'updated', 'parent'],
+          }),
+        },
+        `getProjectIssues(${projectKey}) fallback`,
+      );
+      if (!fallbackResponse.ok) {
+        throw new Error(
+          `[getProjectIssues] Jira returned HTTP ${fallbackResponse.status} for project ${projectKey}. ` +
+          'Verify the project key and API token permissions.'
+        );
+      }
+      const body = await fallbackResponse.json() as { issues: JiraIssue[]; total: number };
+      return { issues: body.issues ?? [], total: body.total ?? 0 };
+    }
     throw new Error(
       `[getProjectIssues] Jira returned HTTP ${response.status} for project ${projectKey}. ` +
       'Verify the project key and API token permissions.'
@@ -293,6 +328,17 @@ export async function getEpics(
     );
 
     if (!response.ok) {
+      // HTTP 400 usually means "Epic" issue type doesn't exist in this project
+      // (e.g. team-managed projects with custom type names). Treat as zero epics.
+      if (response.status === 400) {
+        let detail = '';
+        try { detail = await response.text(); } catch { /* ignore */ }
+        console.warn(
+          `[getEpics] Jira returned HTTP 400 for project ${projectKey} — ` +
+          `"Epic" issue type may not exist in this project. Returning empty list. Detail: ${detail}`
+        );
+        return all;
+      }
       throw new Error(
         `[getEpics] Jira returned HTTP ${response.status} for project ${projectKey}.`
       );
