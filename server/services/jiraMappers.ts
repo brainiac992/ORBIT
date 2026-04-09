@@ -33,6 +33,7 @@ const DEFAULT_STATUS_MAP: Record<string, string> = {
   'Closed': 'complete',
   'Resolved': 'complete',
   'Released': 'complete',
+  'Release': 'complete',
   'Completed': 'complete',
 };
 
@@ -249,6 +250,18 @@ export function mapEpicToWorkstream(
 
   const created = isoDateOnly(epic.fields.created);
   const dueDate = isoDateOnly(epic.fields.duedate);
+  const updated = isoDateOnly(epic.fields.updated);
+
+  // Derive meaningful date range:
+  // - baselineStart: earliest of created/duedate (duedate can predate created if set retroactively)
+  // - baselineEnd: latest of created/duedate, or fall back to updated (last activity)
+  let rangeStart = created;
+  let rangeEnd = dueDate ?? updated ?? created;
+
+  if (created && dueDate) {
+    rangeStart = created < dueDate ? created : dueDate;
+    rangeEnd = created > dueDate ? created : dueDate;
+  }
 
   return {
     ventureId,
@@ -256,9 +269,9 @@ export function mapEpicToWorkstream(
     status: status as 'not_started' | 'in_progress' | 'complete' | 'on_hold',
     completionPct: Math.min(100, Math.max(0, completionPct)),
     sortOrder,
-    baselineStart: created ?? null,
-    baselineEnd: dueDate ?? null,
-    actualStart: status === 'in_progress' || status === 'complete' ? created ?? null : null,
+    baselineStart: rangeStart ?? null,
+    baselineEnd: rangeEnd ?? null,
+    actualStart: status === 'in_progress' || status === 'complete' ? rangeStart ?? null : null,
   };
 }
 
