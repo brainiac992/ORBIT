@@ -239,10 +239,16 @@ export function mapEpicToWorkstream(
   status: 'not_started' | 'in_progress' | 'complete' | 'on_hold';
   completionPct: number;
   sortOrder: number;
+  baselineStart: string | null;
+  baselineEnd: string | null;
+  actualStart: string | null;
 } {
   const jiraStatus = epic.fields.status?.name ?? 'To Do';
   const { status } = mapJiraStatus(jiraStatus, customMappings);
   const completionPct = Math.round(epic.fields.aggregateprogress?.percent ?? 0);
+
+  const created = isoDateOnly(epic.fields.created);
+  const dueDate = isoDateOnly(epic.fields.duedate);
 
   return {
     ventureId,
@@ -250,6 +256,9 @@ export function mapEpicToWorkstream(
     status: status as 'not_started' | 'in_progress' | 'complete' | 'on_hold',
     completionPct: Math.min(100, Math.max(0, completionPct)),
     sortOrder,
+    baselineStart: created ?? null,
+    baselineEnd: dueDate ?? null,
+    actualStart: status === 'in_progress' || status === 'complete' ? created ?? null : null,
   };
 }
 
