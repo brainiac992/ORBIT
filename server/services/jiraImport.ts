@@ -516,6 +516,36 @@ export async function runFullImport(connectionId: string, jobId: string): Promis
           }
         }
 
+        // ── 5f: Compute venture health & completion from workstreams ──
+        const ventureWsList = await db
+          .select({ status: workstreams.status, completionPct: workstreams.completionPct })
+          .from(workstreams)
+          .where(eq(workstreams.ventureId, venture.id));
+
+        if (ventureWsList.length > 0) {
+          const avgCompletion = Math.round(
+            ventureWsList.reduce((sum, ws) => sum + ws.completionPct, 0) / ventureWsList.length
+          );
+          const allComplete = ventureWsList.every(ws => ws.status === 'complete');
+          const anyOffTrack = ventureWsList.some(ws => ws.status === 'on_hold');
+          const anyAtRisk = ventureWsList.some(ws => ws.completionPct < 30 && ws.status === 'in_progress');
+
+          let health: 'on_track' | 'at_risk' | 'off_track' | 'complete' = 'on_track';
+          if (allComplete) health = 'complete';
+          else if (anyOffTrack) health = 'off_track';
+          else if (anyAtRisk) health = 'at_risk';
+
+          let ventureStatus: 'planning' | 'active' | 'on_hold' | 'complete' | 'archived' = 'active';
+          if (allComplete) ventureStatus = 'complete';
+
+          await db.update(ventures).set({
+            completionPct: avgCompletion,
+            health,
+            status: ventureStatus,
+            updatedAt: new Date(),
+          }).where(eq(ventures.id, venture.id));
+        }
+
         projectsProcessed++;
         updateJob(`Imported project ${projectsProcessed} of ${projects.length}`, projectsProcessed, projects.length);
       } catch (projectErr) {
