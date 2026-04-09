@@ -139,6 +139,8 @@ async function hardDeleteAllVentureData(): Promise<void> {
   await db.delete(auditTrail);
   await db.delete(venturePlans);
   await db.delete(artifacts);
+  await db.delete(jiraSyncLog);
+  await db.delete(jiraSyncMappings);
   await db.delete(ventures);
 }
 
