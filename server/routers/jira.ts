@@ -648,4 +648,54 @@ export const jiraRouter = router({
         limit: input.limit,
       };
     }),
+
+  // ── jira.debugProject ──────────────────────────────────────────
+  // Fetches raw epic data for a single project to inspect available fields.
+  // Temporary debug endpoint for verifying field mappings.
+  debugProject: protectedProcedure
+    .use(requireRole('pmo'))
+    .input(z.object({ projectKey: z.string().max(20) }))
+    .query(async ({ ctx, input }) => {
+      const conn = await getActiveConnection(ctx.db);
+      if (!conn) throw new TRPCError({ code: 'NOT_FOUND', message: 'No active Jira connection.' });
+      const apiToken = decryptToken(conn.apiTokenEncrypted);
+      const base = conn.instanceUrl.replace(/\/$/, '');
+      const url = `${base}/rest/api/3/search/jql`;
+
+      // Fetch first 5 epics with ALL fields to see what's available
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          Authorization: 'Basic ' + Buffer.from(`${conn.accountEmail}:${apiToken}`).toString('base64'),
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({
+          jql: `project="${input.projectKey}" AND issuetype=Epic ORDER BY created ASC`,
+          maxResults: 5,
+          fields: ['summary', 'status', 'created', 'duedate', 'aggregateprogress', 'resolutiondate', 'updated', 'statuscategorychangedate'],
+        }),
+      });
+
+      if (!response.ok) {
+        const text = await response.text().catch(() => '');
+        throw new TRPCError({ code: 'BAD_REQUEST', message: `Jira HTTP ${response.status}: ${text}` });
+      }
+
+      const body = await response.json() as { issues: any[]; total: number };
+      return {
+        total: body.total,
+        epics: body.issues.map((e: any) => ({
+          key: e.key,
+          summary: e.fields?.summary,
+          status: e.fields?.status?.name,
+          created: e.fields?.created,
+          duedate: e.fields?.duedate,
+          resolutiondate: e.fields?.resolutiondate,
+          updated: e.fields?.updated,
+          aggregateprogress: e.fields?.aggregateprogress,
+          statuscategorychangedate: e.fields?.statuscategorychangedate,
+        })),
+      };
+    }),
 });
