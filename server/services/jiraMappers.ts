@@ -9,9 +9,31 @@ import type { JiraIssue, JiraComment, JiraProject } from './jiraClient.js';
 // ── Status mapping ─────────────────────────────────────────────
 
 const DEFAULT_STATUS_MAP: Record<string, string> = {
+  // Not started
   'To Do': 'not_started',
+  'Backlog': 'not_started',
+  'Open': 'not_started',
+  'New': 'not_started',
+  'Reopened': 'not_started',
+  'Selected for Development': 'not_started',
+  // In progress
   'In Progress': 'in_progress',
+  'In Development': 'in_progress',
+  'In Review': 'in_progress',
+  'In QA': 'in_progress',
+  'Code Review': 'in_progress',
+  'Review': 'in_progress',
+  'Testing': 'in_progress',
+  'QA': 'in_progress',
+  'Under Review': 'in_progress',
+  'Waiting for Review': 'in_progress',
+  'Active': 'in_progress',
+  // Complete
   'Done': 'complete',
+  'Closed': 'complete',
+  'Resolved': 'complete',
+  'Released': 'complete',
+  'Completed': 'complete',
 };
 
 /**
@@ -23,11 +45,19 @@ export function mapJiraStatus(
   jiraStatus: string,
   customMappings: Record<string, string> = {},
 ): { status: string; wasUnmapped: boolean } {
+  // Check custom mappings first (exact match)
   if (customMappings[jiraStatus]) {
     return { status: customMappings[jiraStatus], wasUnmapped: false };
   }
+  // Check default map (exact match, then case-insensitive)
   if (DEFAULT_STATUS_MAP[jiraStatus]) {
     return { status: DEFAULT_STATUS_MAP[jiraStatus], wasUnmapped: false };
+  }
+  const lowerStatus = jiraStatus.toLowerCase();
+  for (const [key, value] of Object.entries(DEFAULT_STATUS_MAP)) {
+    if (key.toLowerCase() === lowerStatus) {
+      return { status: value, wasUnmapped: false };
+    }
   }
   return { status: 'on_hold', wasUnmapped: true };
 }
