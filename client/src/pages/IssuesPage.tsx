@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { trpc } from '../lib/trpc.js';
 import { StatusBadge, KpiCard } from '../components/StatusBadge.js';
 import { Modal, FormField, Input, TextArea, Select, Button } from '../components/Modal.js';
+import { SearchInput } from '../components/SearchInput.js';
 import { useAuth } from '../lib/auth.js';
 
 export function IssuesPage() {
@@ -15,6 +16,7 @@ export function IssuesPage() {
   const [showForm, setShowForm] = useState(false);
   const [filterStatus, setFilterStatus] = useState<string>('all');
   const [filterSeverity, setFilterSeverity] = useState<string>('all');
+  const [search, setSearch] = useState('');
 
   const isGM = user?.role === 'gm';
 
@@ -22,8 +24,16 @@ export function IssuesPage() {
     let list = issuesList ?? [];
     if (filterStatus !== 'all') list = list.filter((i: any) => i.status === filterStatus);
     if (filterSeverity !== 'all') list = list.filter((i: any) => i.severity === filterSeverity);
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter((i: any) =>
+        (i.title ?? '').toLowerCase().includes(q) ||
+        (i.description ?? '').toLowerCase().includes(q) ||
+        (i.owner ?? '').toLowerCase().includes(q)
+      );
+    }
     return list;
-  }, [issuesList, filterStatus, filterSeverity]);
+  }, [issuesList, filterStatus, filterSeverity, search]);
 
   if (isLoading) return <div className="p-8 text-center text-[var(--text-3)]">Loading issues...</div>;
   if (error) return <div className="p-8 text-red-400">Unable to load issues.</div>;
@@ -70,6 +80,7 @@ export function IssuesPage() {
         {(filterStatus !== 'all' || filterSeverity !== 'all') && (
           <button onClick={() => { setFilterStatus('all'); setFilterSeverity('all'); }} className="text-xs text-[var(--accent-hover)] hover:underline cursor-pointer">Clear filters</button>
         )}
+        <SearchInput value={search} onChange={setSearch} placeholder="Search issues…" className="w-48" />
       </div>
 
       {/* Open issues */}

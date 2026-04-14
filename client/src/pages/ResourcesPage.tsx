@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { trpc } from '../lib/trpc.js';
 import { StatusBadge, SectionHeader } from '../components/StatusBadge.js';
 import { Modal, FormField, Input, Select, Button } from '../components/Modal.js';
+import { SearchInput } from '../components/SearchInput.js';
 import { useAuth } from '../lib/auth.js';
 import { formatDate } from '../lib/format.js';
 
@@ -12,7 +13,19 @@ export function ResourcesPage() {
   const { data, isLoading } = trpc.resources.listForVenture.useQuery({ ventureId: ventureId! });
   const [showAssign, setShowAssign] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
+  const [search, setSearch] = useState('');
   const canManage = user?.role === 'pmo' || user?.role === 'pm';
+
+  const filteredData = useMemo(() => {
+    if (!search.trim()) return data ?? [];
+    const q = search.toLowerCase();
+    return (data ?? []).filter((r: any) =>
+      (r.name ?? '').toLowerCase().includes(q) ||
+      (r.roleTitle ?? '').toLowerCase().includes(q) ||
+      (r.department ?? '').toLowerCase().includes(q) ||
+      (r.email ?? '').toLowerCase().includes(q)
+    );
+  }, [data, search]);
 
   if (isLoading) return <div className="p-8 text-[var(--text-3)]">Loading resources...</div>;
 
@@ -27,6 +40,10 @@ export function ResourcesPage() {
           </div>
         ) : undefined}
       />
+
+      <div className="mb-4">
+        <SearchInput value={search} onChange={setSearch} placeholder="Search resources…" />
+      </div>
 
       {(!data || data.length === 0) ? (
         <div className="text-center py-12">
@@ -48,7 +65,7 @@ export function ResourcesPage() {
               </tr>
             </thead>
             <tbody>
-              {data.map((r: any) =>
+              {filteredData.map((r: any) =>
                 r.assignments.map((a: any) => (
                   <tr key={a.id} className="border-t border-[var(--border)]">
                     <td className="px-5 py-3 font-medium text-[var(--text-0)]">{r.name}</td>

@@ -3,6 +3,7 @@ import { useParams } from 'react-router-dom';
 import { trpc } from '../lib/trpc.js';
 import { StatusBadge, KpiCard, SectionHeader } from '../components/StatusBadge.js';
 import { Modal, FormField, Input, TextArea, Select, Button } from '../components/Modal.js';
+import { SearchInput } from '../components/SearchInput.js';
 import { useAuth } from '../lib/auth.js';
 import { LIKELIHOOD_LABELS, IMPACT_LABELS, getScoreBand } from '../../../shared/enums.js';
 
@@ -101,6 +102,7 @@ export function RisksPage() {
   const [filterBand, setFilterBand] = useState<string>('all');
   const [sortField, setSortField] = useState<string>('riskScore');
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
+  const [search, setSearch] = useState('');
 
   const isGM = user?.role === 'gm';
 
@@ -130,13 +132,21 @@ export function RisksPage() {
     if (filterBand !== 'all') {
       list = list.filter((r: any) => getScoreBand(r.riskScore) === filterBand);
     }
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter((r: any) =>
+        (r.title ?? '').toLowerCase().includes(q) ||
+        (r.description ?? '').toLowerCase().includes(q) ||
+        (r.ownerName ?? '').toLowerCase().includes(q)
+      );
+    }
     return [...list].sort((a: any, b: any) => {
       const av = a[sortField] ?? 0;
       const bv = b[sortField] ?? 0;
       if (typeof av === 'string') return sortDir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av);
       return sortDir === 'asc' ? av - bv : bv - av;
     });
-  }, [risksList, heatmapFilter, filterStatus, filterOwner, filterBand, sortField, sortDir]);
+  }, [risksList, heatmapFilter, filterStatus, filterOwner, filterBand, sortField, sortDir, search]);
 
   const openRisks = filteredRisks.filter((r: any) => r.status === 'open');
   const closedRisks = filteredRisks.filter((r: any) => r.status !== 'open');
@@ -269,6 +279,7 @@ export function RisksPage() {
         {(filterStatus !== 'all' || filterBand !== 'all' || filterOwner !== 'all') && (
           <button onClick={() => { setFilterStatus('all'); setFilterBand('all'); setFilterOwner('all'); }} className="text-xs text-[var(--accent-hover)] hover:underline cursor-pointer">Clear filters</button>
         )}
+        <SearchInput value={search} onChange={setSearch} placeholder="Search risks…" className="w-48" />
       </div>
 
       {/* ── Sort controls ─────────────────── */}

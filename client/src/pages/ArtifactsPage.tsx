@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { trpc } from '../lib/trpc.js';
 import { SectionHeader, StatusBadge } from '../components/StatusBadge.js';
 import { Modal, FormField, Input, TextArea, Select, Button } from '../components/Modal.js';
+import { SearchInput } from '../components/SearchInput.js';
 import { useAuth } from '../lib/auth.js';
 import { formatDate } from '../lib/format.js';
 import { ARTIFACT_STAGE, ARTIFACT_STAGE_LABELS } from '../../../shared/enums.js';
@@ -44,11 +45,23 @@ export function ArtifactsPage() {
   const { data, isLoading } = trpc.artifacts.list.useQuery({ ventureId: ventureId! });
   const [showUpload, setShowUpload] = useState(false);
   const [filterStage, setFilterStage] = useState<string>('all');
+  const [search, setSearch] = useState('');
   const canManage = user?.role === 'pmo' || user?.role === 'pm';
 
   if (isLoading) return <div className="p-8 text-[var(--text-3)]">Loading artifacts...</div>;
 
-  const filtered = filterStage === 'all' ? data ?? [] : (data ?? []).filter((a: any) => a.stage === filterStage);
+  const filtered = useMemo(() => {
+    let list = filterStage === 'all' ? data ?? [] : (data ?? []).filter((a: any) => a.stage === filterStage);
+    if (search.trim()) {
+      const q = search.toLowerCase();
+      list = list.filter((a: any) =>
+        (a.name ?? '').toLowerCase().includes(q) ||
+        (a.description ?? '').toLowerCase().includes(q) ||
+        (a.fileName ?? '').toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [data, filterStage, search]);
 
   // Group by stage
   const grouped = ARTIFACT_STAGE.reduce((acc, stage) => {
@@ -64,8 +77,11 @@ export function ArtifactsPage() {
         action={canManage ? <Button onClick={() => setShowUpload(true)}>Upload Artifact</Button> : undefined}
       />
 
-      {/* Stage filter */}
-      <div className="flex gap-1 mb-6 bg-[var(--surface-0)] rounded-xl p-1 border border-[var(--border)] no-print">
+      {/* Stage filter + search */}
+      <div className="flex flex-wrap gap-3 mb-6 items-center no-print">
+        <SearchInput value={search} onChange={setSearch} placeholder="Search artifacts…" className="w-52" />
+      </div>
+      <div className="flex gap-1 mb-4 bg-[var(--surface-0)] rounded-xl p-1 border border-[var(--border)] no-print">
         <button
           onClick={() => setFilterStage('all')}
           className={`px-3 py-2 rounded-lg text-xs font-medium transition-all ${

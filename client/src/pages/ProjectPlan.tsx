@@ -7,6 +7,7 @@ import { formatDate } from '../lib/format.js';
 import { useState, useMemo } from 'react';
 import { JiraSyncPanel } from '../components/JiraSyncPanel.js';
 import { JiraManagedBanner } from '../components/JiraManagedBanner.js';
+import { SearchInput } from '../components/SearchInput.js';
 
 export function ProjectPlanPage() {
   const { ventureId } = useParams<{ ventureId: string }>();
@@ -41,6 +42,13 @@ export function ProjectPlanPage() {
     return map;
   }, [raciAssignments]);
 
+  const [search, setSearch] = useState('');
+  const filteredWorkstreams = useMemo(() => {
+    if (!search.trim()) return workstreams ?? [];
+    const q = search.toLowerCase();
+    return (workstreams ?? []).filter((ws: any) => (ws.name ?? '').toLowerCase().includes(q));
+  }, [workstreams, search]);
+
   if (isLoading) return <div className="p-8 text-[var(--text-3)]">Loading plan...</div>;
 
   return (
@@ -49,6 +57,9 @@ export function ProjectPlanPage() {
         title="Project Plan"
         action={canEdit ? <Button onClick={() => setShowAddWs(true)}>Add Workstream</Button> : undefined}
       />
+      <div className="mb-4">
+        <SearchInput value={search} onChange={setSearch} placeholder="Search workstreams…" />
+      </div>
 
       {/* Jira sync panel — shown to all roles when venture is Jira-linked */}
       {venture && isJiraManaged && (
@@ -104,7 +115,7 @@ export function ProjectPlanPage() {
         </div>
       ) : (
         <div className="space-y-4">
-          {workstreams.map(ws => <WorkstreamRow key={ws.id} workstream={ws} ventureId={ventureId!} isGM={isGM} isJiraManaged={isJiraManaged} raciMap={raciByWs.get(ws.id)} />)}
+          {filteredWorkstreams.map((ws: any) => <WorkstreamRow key={ws.id} workstream={ws} ventureId={ventureId!} isGM={isGM} isJiraManaged={isJiraManaged} raciMap={raciByWs.get(ws.id)} />)}
         </div>
       )}
 

@@ -1,8 +1,9 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { trpc } from '../lib/trpc.js';
 import { StatusBadge, formatAED, SectionHeader } from '../components/StatusBadge.js';
 import { Modal, FormField, Input, TextArea, Select, Button } from '../components/Modal.js';
+import { SearchInput } from '../components/SearchInput.js';
 import { useAuth } from '../lib/auth.js';
 import { formatDate } from '../lib/format.js';
 
@@ -14,6 +15,19 @@ export function BudgetPage() {
   const [showSpendForm, setShowSpendForm] = useState(false);
   const [showForecastForm, setShowForecastForm] = useState(false);
   const [showSetBudget, setShowSetBudget] = useState(false);
+  const [search, setSearch] = useState('');
+
+  const filteredEntries = useMemo(() => {
+    const entries = data?.entries ?? [];
+    if (!search.trim()) return entries;
+    const q = search.toLowerCase();
+    return entries.filter((e: any) =>
+      (e.description ?? '').toLowerCase().includes(q) ||
+      (e.vendor ?? '').toLowerCase().includes(q) ||
+      (e.category ?? '').toLowerCase().includes(q) ||
+      (e.entryType ?? '').toLowerCase().includes(q)
+    );
+  }, [data?.entries, search]);
 
   const isGM = user?.role === 'gm';
   const isPMO = user?.role === 'pmo';
@@ -87,8 +101,11 @@ export function BudgetPage() {
           <h3 className="text-sm font-medium">Spend Log</h3>
           <p className="text-xs text-[var(--text-3)]">Entries cannot be edited. Log a correction to adjust.</p>
         </div>
-        {data.entries.length === 0 ? (
-          <p className="p-5 text-sm text-[var(--text-3)]">No spend entries logged yet.</p>
+        <div className="px-5 pt-4 pb-2">
+          <SearchInput value={search} onChange={setSearch} placeholder="Search entries…" />
+        </div>
+        {filteredEntries.length === 0 ? (
+          <p className="p-5 text-sm text-[var(--text-3)]">{data.entries.length === 0 ? 'No spend entries logged yet.' : 'No entries match your search.'}</p>
         ) : (
           <table className="w-full text-sm">
             <thead>
@@ -101,7 +118,7 @@ export function BudgetPage() {
               </tr>
             </thead>
             <tbody>
-              {data.entries.map((entry: any) => (
+              {filteredEntries.map((entry: any) => (
                 <tr key={entry.id} className="border-t border-[var(--border)]">
                   <td className="px-4 py-2 ltr-num">{formatDate(entry.entryDate)}</td>
                   <td className="px-4 py-2">
