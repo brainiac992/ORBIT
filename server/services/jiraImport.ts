@@ -656,7 +656,7 @@ export async function runFullImport(connectionId: string, jobId: string, force =
                 if (existingMap.syncHash !== newHash) {
                   const msShape = mapIssueToMilestone(issue, workstreamId, targetEndDate, customMappings);
                   await db.update(milestones)
-                    .set({ name: msShape.name, status: msShape.status, dueDate: msShape.dueDate, notes: msShape.notes, updatedAt: new Date() })
+                    .set({ name: msShape.name, status: msShape.status, dueDate: msShape.dueDate, actualCompletionDate: msShape.actualCompletionDate, updatedAt: new Date() })
                     .where(eq(milestones.id, existingMap.orbitEntityId));
                   await writeSyncMapping({ connectionId, jiraEntityType: 'issue', jiraEntityId: issue.id, orbitEntityType: 'milestone', orbitEntityId: existingMap.orbitEntityId, syncHash: newHash });
                 }
@@ -1045,8 +1045,12 @@ export async function getImportPreview(connectionId: string): Promise<{
   const [issueCount] = await db.select({ count: countQuery() }).from(issues);
   const [progressCount] = await db.select({ count: countQuery() }).from(progressUpdates);
 
-  // Count what Jira has (high-level scan)
-  const projects = await jiraClient.getProjects(conn.instanceUrl, conn.accountEmail, apiToken);
+  // Count what Jira has (high-level scan — filtered to projectKeyFilter if set)
+  let projects = await jiraClient.getProjects(conn.instanceUrl, conn.accountEmail, apiToken);
+  if (conn.projectKeyFilter) {
+    const allowedKeys = conn.projectKeyFilter.split(',').map((k: string) => k.trim().toUpperCase());
+    projects = projects.filter(p => allowedKeys.includes(p.key.toUpperCase()));
+  }
   let epicCount = 0;
   let storyCount = 0;
   let riskIssueCount = 0;
