@@ -363,7 +363,7 @@ export async function runFullImport(connectionId: string, jobId: string, force =
       projects = projects.filter(p => allowedKeys.includes(p.key.toUpperCase()));
     }
 
-    updateJob('Fetching Jira projects…', 0, projects.length);
+    updateJob('Fetching Jira projects…');
 
     if (projects.length === 0) {
       await writeSyncLog({
@@ -383,7 +383,7 @@ export async function runFullImport(connectionId: string, jobId: string, force =
     let projectsProcessed = 0;
 
     for (const project of projects) {
-      updateJob(`Importing project ${projectsProcessed + 1} of ${projects.length}: ${project.key}`, projectsProcessed, projects.length);
+      updateJob(`Scanning ${project.key}…`);
 
       try {
         // ── 4a: Resolve or create venture ──────────────────
@@ -794,7 +794,7 @@ export async function runFullImport(connectionId: string, jobId: string, force =
         }
 
         projectsProcessed++;
-        updateJob(`Imported project ${projectsProcessed} of ${projects.length}`, projectsProcessed, projects.length);
+        updateJob(`Imported ${project.key}`);
       } catch (projectErr) {
         const errMsg = (projectErr as Error).message;
         // HTTP 400 = no search access to this project — skip with warning, not error
@@ -842,7 +842,7 @@ export async function runFullImport(connectionId: string, jobId: string, force =
         .where(eq(jiraConnections.id, connectionId));
 
       job.failed = true;
-      updateJob('Failed — partial import', projectsProcessed, projects.length);
+      updateJob('Failed — partial import');
       job.completedAt = new Date();
       // Throw so the outer catch path releases the lock and propagates failed state
       throw new Error(errMsg);
@@ -867,7 +867,7 @@ export async function runFullImport(connectionId: string, jobId: string, force =
       .set({ lastValidatedAt: new Date(), lastImportAt: new Date(), lastError: null, updatedAt: new Date() })
       .where(eq(jiraConnections.id, connectionId));
 
-    updateJob('Complete', projectsProcessed, projects.length);
+    updateJob('Complete');
     job.completedAt = new Date();
   } catch (err) {
     // ── Error path: release lock, write error log, re-throw ──
