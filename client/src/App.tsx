@@ -61,11 +61,12 @@ function AppInner() {
         </Route>
         <Route path="/activity" element={user?.role !== 'gm' ? <ActivityPage /> : <RoleRedirect />} />
         <Route path="/approvals" element={user?.role === 'pmo' ? <ApprovalsPage /> : <RoleRedirect />} />
-        <Route path="/admin/config" element={user?.role === 'pmo' ? <ConfigPage /> : <RoleRedirect />} />
-        <Route path="/settings/jira" element={user?.role === 'pmo' ? <JiraSettingsPage /> : <RoleRedirect />} />
-        <Route path="/settings/jira/import" element={user?.role === 'pmo' ? <JiraImportPage /> : <RoleRedirect />} />
-        <Route path="/settings/jira/sync" element={user?.role === 'pmo' ? <JiraSyncDashboard /> : <RoleRedirect />} />
-        <Route path="/settings/jira/mappings" element={user?.role === 'pmo' ? <JiraStatusMappingsPage /> : <RoleRedirect />} />
+        <Route path="/admin/config" element={user?.role === 'pmo' ? <ConfigPage /> : <RoleRedirect />}>
+          <Route path="jira" element={<JiraSettingsPage />} />
+          <Route path="jira/import" element={<JiraImportPage />} />
+          <Route path="jira/sync" element={<JiraSyncDashboard />} />
+          <Route path="jira/mappings" element={<JiraStatusMappingsPage />} />
+        </Route>
       </Route>
       <Route path="*" element={<Navigate to={user ? roleHome[user.role] : '/login'} />} />
     </Routes>

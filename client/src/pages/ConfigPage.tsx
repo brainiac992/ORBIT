@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useLocation, useNavigate, Outlet } from 'react-router-dom';
 import { trpc } from '../lib/trpc.js';
 import { Button, Input, FormField } from '../components/Modal.js';
 
@@ -12,7 +13,68 @@ const CATEGORY_LABELS: Record<string, string> = {
 
 const ALL_CATEGORIES = Object.keys(CATEGORY_LABELS);
 
+const jiraTabs = [
+  { label: 'Connection', path: '/admin/config/jira' },
+  { label: 'Import', path: '/admin/config/jira/import' },
+  { label: 'Sync Dashboard', path: '/admin/config/jira/sync' },
+  { label: 'Status Mappings', path: '/admin/config/jira/mappings' },
+];
+
 export function ConfigPage() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  const isJiraTab = location.pathname.startsWith('/admin/config/jira');
+
+  return (
+    <div className="p-6 max-w-5xl mx-auto">
+      <div className="mb-8">
+        <h2 className="text-2xl font-bold text-[var(--text-0)]">Configuration</h2>
+        <p className="text-sm text-[var(--text-3)] mt-1">Manage system options and integrations.</p>
+      </div>
+
+      {/* Top-level tab bar */}
+      <div className="flex gap-1 mb-6 bg-[var(--surface-0)] rounded-xl p-1 border border-[var(--border)]">
+        <button
+          onClick={() => navigate('/admin/config')}
+          className={`px-4 py-2 rounded-lg text-xs font-medium transition-all ${!isJiraTab ? 'bg-[var(--accent)] text-white' : 'text-[var(--text-2)] hover:text-[var(--text-0)]'}`}
+        >
+          Options
+        </button>
+        <button
+          onClick={() => navigate('/admin/config/jira')}
+          className={`px-4 py-2 rounded-lg text-xs font-medium transition-all ${isJiraTab ? 'bg-[var(--accent)] text-white' : 'text-[var(--text-2)] hover:text-[var(--text-0)]'}`}
+        >
+          Jira Integration
+        </button>
+      </div>
+
+      {isJiraTab ? (
+        <div>
+          {/* Jira sub-tab bar */}
+          <div className="flex gap-1 mb-6 bg-[var(--surface-1)] rounded-xl p-1 border border-[var(--border)]">
+            {jiraTabs.map(tab => {
+              const active = location.pathname === tab.path;
+              return (
+                <button
+                  key={tab.path}
+                  onClick={() => navigate(tab.path)}
+                  className={`px-4 py-2 rounded-lg text-xs font-medium transition-all ${active ? 'bg-[var(--surface-0)] text-[var(--text-0)] shadow-sm' : 'text-[var(--text-2)] hover:text-[var(--text-0)]'}`}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
+          </div>
+          <Outlet />
+        </div>
+      ) : (
+        <OptionsContent />
+      )}
+    </div>
+  );
+}
+
+function OptionsContent() {
   const { data, isLoading } = trpc.config.listAll.useQuery();
   const utils = trpc.useUtils();
   const seedMutation = trpc.config.seed.useMutation({
@@ -21,28 +83,20 @@ export function ConfigPage() {
     },
   });
 
-  if (isLoading) return <div className="p-8 text-[var(--text-3)]">Loading configuration...</div>;
+  if (isLoading) return <div className="py-8 text-[var(--text-3)]">Loading options...</div>;
 
   const grouped = data ?? {};
   const emptyCategories = ALL_CATEGORIES.filter(c => !grouped[c] || grouped[c].length === 0);
 
   return (
-    <div className="p-6 max-w-5xl mx-auto">
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h2 className="text-2xl font-bold text-[var(--text-0)]">Configuration</h2>
-          <p className="text-sm text-[var(--text-3)] mt-1">Manage dropdown options for roles, departments, and venture types.</p>
-        </div>
-        {emptyCategories.length > 0 && (
-          <Button
-            onClick={() => seedMutation.mutate()}
-            disabled={seedMutation.isPending}
-          >
+    <>
+      {emptyCategories.length > 0 && (
+        <div className="flex justify-end mb-4">
+          <Button onClick={() => seedMutation.mutate()} disabled={seedMutation.isPending}>
             {seedMutation.isPending ? 'Seeding...' : 'Seed Defaults'}
           </Button>
-        )}
-      </div>
-
+        </div>
+      )}
       <div className="space-y-4">
         {ALL_CATEGORIES.map(category => (
           <CategorySection
@@ -53,7 +107,7 @@ export function ConfigPage() {
           />
         ))}
       </div>
-    </div>
+    </>
   );
 }
 

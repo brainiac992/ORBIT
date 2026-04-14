@@ -47,7 +47,7 @@ function JiraSettingsContent() {
   const saveMutation = trpc.jira.saveConnection.useMutation({
     onSuccess: () => {
       utils.jira.getConnection.invalidate();
-      navigate('/settings/jira/import');
+      navigate('/admin/config/jira/import');
     },
   });
   const disconnectMutation = trpc.jira.disconnect.useMutation({
@@ -181,14 +181,14 @@ function JiraSettingsContent() {
             <div className="flex flex-col gap-2">
               <Button
                 variant="secondary"
-                onClick={() => navigate('/settings/jira/sync')}
+                onClick={() => navigate('/admin/config/jira/sync')}
                 className="!text-xs whitespace-nowrap"
               >
                 Sync Dashboard
               </Button>
               <Button
                 variant="secondary"
-                onClick={() => navigate('/settings/jira/import')}
+                onClick={() => navigate('/admin/config/jira/import')}
                 className="!text-xs whitespace-nowrap"
               >
                 Run Import

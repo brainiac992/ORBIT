@@ -175,7 +175,7 @@ function ImportFlow() {
             <div className="flex gap-3">
               <Button
                 variant="ghost"
-                onClick={() => navigate('/settings/jira')}
+                onClick={() => navigate('/admin/config/jira')}
               >
                 Cancel
               </Button>
@@ -289,7 +289,7 @@ function ImportFlow() {
             </div>
           )}
           <div className="flex gap-3 justify-center">
-            <Button variant="secondary" onClick={() => navigate('/settings/jira/sync')}>
+            <Button variant="secondary" onClick={() => navigate('/admin/config/jira/sync')}>
               View Sync Dashboard
             </Button>
             <Button onClick={() => navigate('/dashboard/pmo')}>
@@ -316,7 +316,7 @@ function ImportFlow() {
           Retrying will delete all existing ORBIT data and re-import from Jira from scratch.
         </p>
         <div className="flex gap-3 justify-center">
-          <Button variant="ghost" onClick={() => navigate('/settings/jira')}>
+          <Button variant="ghost" onClick={() => navigate('/admin/config/jira')}>
             Back to Settings
           </Button>
           <Button

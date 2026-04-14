@@ -92,7 +92,7 @@ function SyncDashboardContent() {
           </p>
         </div>
         <div className="flex gap-2">
-          <Button variant="secondary" onClick={() => navigate('/settings/jira')} className="!text-xs">
+          <Button variant="secondary" onClick={() => navigate('/admin/config/jira')} className="!text-xs">
             Connection Settings
           </Button>
           {reimportConfirm === 'idle' ? (
@@ -115,7 +115,7 @@ function SyncDashboardContent() {
                 <Button variant="ghost" onClick={() => setReimportConfirm('idle')} className="!text-xs">
                   Cancel (safe)
                 </Button>
-                <Button variant="danger" onClick={() => navigate('/settings/jira/import')} className="!text-xs">
+                <Button variant="danger" onClick={() => navigate('/admin/config/jira/import')} className="!text-xs">
                   Proceed with reimport
                 </Button>
               </div>
@@ -156,7 +156,7 @@ function SyncDashboardContent() {
         <div className="text-center py-16">
           <div className="text-4xl mb-4 text-[var(--text-3)]" aria-hidden="true">&#9673;</div>
           <p className="text-[var(--text-3)] text-sm mb-4">No Jira-linked ventures found.</p>
-          <Button onClick={() => navigate('/settings/jira/import')}>Run Import</Button>
+          <Button onClick={() => navigate('/admin/config/jira/import')}>Run Import</Button>
         </div>
       )}
 

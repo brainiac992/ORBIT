@@ -19,13 +19,6 @@ const navItems: Record<string, { label: string; icon: string; path: string }[]> 
   ],
 };
 
-const jiraNavItems = [
-  { label: 'Connection', path: '/settings/jira' },
-  { label: 'Import', path: '/settings/jira/import' },
-  { label: 'Sync Dashboard', path: '/settings/jira/sync' },
-  { label: 'Status Mappings', path: '/settings/jira/mappings' },
-];
-
 const ventureTabs = [
   { label: 'Plan', icon: '📋', suffix: 'plan' },
   { label: 'RACI', icon: '👤', suffix: 'raci' },
@@ -75,7 +68,6 @@ export function Shell() {
             );
           })}
 
-          {user.role === 'pmo' && <JiraNavSection />}
           {user.role !== 'gm' && <VenturesList />}
         </nav>
 
@@ -102,60 +94,6 @@ export function Shell() {
       <main className="flex-1 overflow-y-auto">
         <Outlet />
       </main>
-    </div>
-  );
-}
-
-function JiraNavSection() {
-  const location = useLocation();
-  const navigate = useNavigate();
-  const [expanded, setExpanded] = useState(false);
-
-  const isJiraActive = location.pathname.startsWith('/settings/jira');
-
-  // Auto-expand when navigating into a Jira route
-  useEffect(() => {
-    if (isJiraActive && !expanded) {
-      setExpanded(true);
-    }
-  }, [isJiraActive]);
-
-  return (
-    <div className="mt-4 pt-4 border-t border-[var(--border)]">
-      <button
-        onClick={() => setExpanded(e => !e)}
-        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all ${
-          isJiraActive
-            ? 'bg-[var(--accent-dim)] text-[var(--accent-hover)]'
-            : 'text-[var(--text-2)] hover:text-[var(--text-0)] hover:bg-[var(--surface-1)]'
-        }`}
-        aria-expanded={expanded}
-      >
-        <span className="text-base" aria-hidden="true">&#9741;</span>
-        <span className="flex-1 text-start">Jira Integration</span>
-        <span className={`text-[10px] transition-transform ${expanded ? 'rotate-90' : ''}`} aria-hidden="true">&#9654;</span>
-      </button>
-
-      {expanded && (
-        <div className="ms-3 border-s border-[var(--border)] ps-1 mt-1">
-          {jiraNavItems.map(item => {
-            const active = location.pathname === item.path;
-            return (
-              <button
-                key={item.path}
-                onClick={() => navigate(item.path)}
-                className={`w-full flex items-center gap-2.5 px-3 py-1.5 rounded-lg text-xs transition-all ${
-                  active
-                    ? 'bg-[var(--accent-dim)] text-[var(--accent-hover)] font-medium'
-                    : 'text-[var(--text-2)] hover:text-[var(--text-0)] hover:bg-[var(--surface-1)]'
-                }`}
-              >
-                {item.label}
-              </button>
-            );
-          })}
-        </div>
-      )}
     </div>
   );
 }

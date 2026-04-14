@@ -123,7 +123,7 @@ export function JiraSyncPanel({ ventureId, jiraProjectKey, jiraSyncEnabled, inst
                 <>
                   <span className="text-[var(--border-hover)]" aria-hidden="true">|</span>
                   <button
-                    onClick={() => navigate(`/settings/jira/sync`)}
+                    onClick={() => navigate(`/admin/config/jira/sync`)}
                     className="text-[var(--accent-hover)] hover:underline transition-colors"
                     aria-label="View full sync log in sync dashboard"
                   >
