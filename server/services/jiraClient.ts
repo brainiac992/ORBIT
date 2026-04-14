@@ -93,6 +93,7 @@ export interface JiraIssue {
     parent?: { id?: string; key?: string };
     epic?: { id?: string; key?: string };
     aggregateprogress?: { percent?: number };
+    customfield_10015?: string | null; // Epic start date (Jira Cloud standard)
     comment?: {
       comments?: JiraComment[];
       total?: number;
@@ -287,7 +288,7 @@ export async function getEpics(
     const bodyObj: Record<string, unknown> = {
       jql,
       maxResults: pageSize,
-      fields: ['summary', 'description', 'status', 'aggregateprogress', 'created', 'duedate'],
+      fields: ['summary', 'description', 'status', 'aggregateprogress', 'customfield_10015', 'duedate'],
     };
     if (pageToken) bodyObj.nextPageToken = pageToken;
 

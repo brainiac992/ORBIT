@@ -248,20 +248,9 @@ export function mapEpicToWorkstream(
   const { status } = mapJiraStatus(jiraStatus, customMappings);
   const completionPct = Math.round(epic.fields.aggregateprogress?.percent ?? 0);
 
-  const created = isoDateOnly(epic.fields.created);
-  const dueDate = isoDateOnly(epic.fields.duedate);
-  const updated = isoDateOnly(epic.fields.updated);
-
-  // Derive meaningful date range:
-  // - baselineStart: earliest of created/duedate (duedate can predate created if set retroactively)
-  // - baselineEnd: latest of created/duedate, or fall back to updated (last activity)
-  let rangeStart = created;
-  let rangeEnd = dueDate ?? updated ?? created;
-
-  if (created && dueDate) {
-    rangeStart = created < dueDate ? created : dueDate;
-    rangeEnd = created > dueDate ? created : dueDate;
-  }
+  // Use Jira epic start date (customfield_10015) and due date as the canonical range.
+  const rangeStart = isoDateOnly(epic.fields.customfield_10015);
+  const rangeEnd = isoDateOnly(epic.fields.duedate);
 
   return {
     ventureId,
