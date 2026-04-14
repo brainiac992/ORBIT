@@ -38,6 +38,10 @@ function JiraSettingsContent() {
   const utils = trpc.useUtils();
 
   const { data: connection, isLoading, error: loadError } = trpc.jira.getConnection.useQuery();
+  const { data: importTime } = trpc.jira.getLastImportTime.useQuery(undefined, {
+    enabled: connection?.status === 'connected',
+    refetchInterval: 60_000,
+  });
 
   const testMutation = trpc.jira.testConnection.useMutation();
   const saveMutation = trpc.jira.saveConnection.useMutation({
@@ -149,9 +153,23 @@ function JiraSettingsContent() {
               </div>
               <div className="text-sm text-[var(--text-1)] mb-1">{connection.instanceUrl}</div>
               <div className="text-xs text-[var(--text-3)]">{connection.accountEmail}</div>
-              {connection.lastValidatedAt && (
+              {importTime?.lastImportAt ? (
+                <div className="text-xs text-[var(--text-3)] mt-1">
+                  Last synced: {formatDateTime(String(importTime.lastImportAt))}
+                </div>
+              ) : connection.lastValidatedAt ? (
                 <div className="text-xs text-[var(--text-3)] mt-1">
                   Last validated: {formatDateTime(String(connection.lastValidatedAt))}
+                </div>
+              ) : null}
+              {importTime?.nextScheduledAt && (
+                <div className="text-xs text-[var(--text-3)] mt-0.5">
+                  Next auto-sync: {formatDateTime(String(importTime.nextScheduledAt))} (7:00 AM UAE)
+                </div>
+              )}
+              {importTime?.projectKeyFilter && (
+                <div className="text-xs text-[var(--text-3)] mt-0.5">
+                  Syncing: <span className="font-mono text-[var(--text-1)]">{importTime.projectKeyFilter}</span>
                 </div>
               )}
               {hasError && connection.lastError && (

@@ -247,10 +247,11 @@ export const jiraRouter = router({
     }),
 
   // ── jira.triggerImport ───────────────────────────────────────
-  // Starts the async import. Returns a jobId for status polling.
+  // Starts the async import. force=true wipes all data and reimports from scratch.
   triggerImport: protectedProcedure
     .use(requireRole('pmo'))
-    .mutation(async ({ ctx }) => {
+    .input(z.object({ force: z.boolean().optional().default(false) }))
+    .mutation(async ({ ctx, input }) => {
       const conn = await getActiveConnection(ctx.db);
       if (!conn) {
         throw new TRPCError({ code: 'NOT_FOUND', message: 'No active Jira connection found.' });
@@ -262,8 +263,28 @@ export const jiraRouter = router({
         });
       }
 
-      const jobId = triggerImport(conn.id);
+      const jobId = triggerImport(conn.id, input.force);
       return { jobId, status: 'queued', estimatedSeconds: 30 };
+    }),
+
+  // ── jira.getLastImportTime ───────────────────────────────────
+  // Returns last successful import timestamp and next scheduled run.
+  getLastImportTime: protectedProcedure
+    .use(requireRole('pmo'))
+    .query(async ({ ctx }) => {
+      const conn = await getActiveConnection(ctx.db);
+      if (!conn) return null;
+
+      const now = new Date();
+      const next = new Date();
+      next.setUTCHours(3, 0, 0, 0);
+      if (next.getTime() <= now.getTime()) next.setUTCDate(next.getUTCDate() + 1);
+
+      return {
+        lastImportAt: conn.lastImportAt ?? null,
+        nextScheduledAt: next,
+        projectKeyFilter: conn.projectKeyFilter ?? null,
+      };
     }),
 
   // ── jira.getImportStatus ─────────────────────────────────────

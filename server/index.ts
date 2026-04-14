@@ -10,6 +10,7 @@ import { appRouter } from './routers/index.js';
 import { createContext } from './context.js';
 import { registerJiraWebhookRoute } from './webhooks/jiraWebhook.js';
 import { startReconciliationJob } from './services/jiraReconciliation.js';
+import { startDailyImportJob } from './services/jiraImport.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
@@ -81,6 +82,8 @@ app.listen(Number(PORT), '0.0.0.0', () => {
   console.log(`ADRES PMO server running on port ${PORT}`);
   // Start Jira reconciliation job after server is bound and DB is reachable
   startReconciliationJob();
+  // Start daily 7 AM UAE (3 AM UTC) delta import scheduler
+  startDailyImportJob();
 });
 
 export { appRouter };

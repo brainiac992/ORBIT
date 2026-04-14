@@ -220,13 +220,18 @@ export async function getProjectIssues(
   token: string,
   projectKey: string,
   nextPageToken?: string,
+  updatedSince?: string,
 ): Promise<{ issues: JiraIssue[]; total: number; nextPageToken?: string }> {
   const base = instanceUrl.replace(/\/$/, '');
   const pageSize = 100;
   const url = `${base}/rest/api/3/search/jql`;
 
+  const jql = updatedSince
+    ? `project="${projectKey}" AND issuetype!=Epic AND updated >= "${updatedSince}" ORDER BY updated ASC`
+    : `project="${projectKey}" AND issuetype!=Epic ORDER BY created ASC`;
+
   const bodyObj: Record<string, unknown> = {
-    jql: `project="${projectKey}" AND issuetype!=Epic ORDER BY created ASC`,
+    jql,
     maxResults: pageSize,
     fields: ['summary', 'description', 'issuetype', 'status', 'priority', 'labels', 'duedate', 'resolutiondate', 'created', 'updated', 'parent'],
   };
@@ -265,17 +270,22 @@ export async function getEpics(
   email: string,
   token: string,
   projectKey: string,
+  updatedSince?: string,
 ): Promise<JiraIssue[]> {
   const base = instanceUrl.replace(/\/$/, '');
   const pageSize = 50;
   const all: JiraIssue[] = [];
   let pageToken: string | undefined;
 
+  const jql = updatedSince
+    ? `project="${projectKey}" AND issuetype=Epic AND updated >= "${updatedSince}" ORDER BY updated ASC`
+    : `project="${projectKey}" AND issuetype=Epic ORDER BY created ASC`;
+
   while (true) {
     const url = `${base}/rest/api/3/search/jql`;
 
     const bodyObj: Record<string, unknown> = {
-      jql: `project="${projectKey}" AND issuetype=Epic ORDER BY created ASC`,
+      jql,
       maxResults: pageSize,
       fields: ['summary', 'description', 'status', 'aggregateprogress', 'created', 'duedate'],
     };

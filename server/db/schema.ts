@@ -62,6 +62,8 @@ export const jiraConnections = pgTable('jira_connections', {
   importLock: boolean('import_lock').notNull().default(false),
   lastValidatedAt: timestamp('last_validated_at', { withTimezone: true }),
   lastError: text('last_error'),
+  projectKeyFilter: text('project_key_filter'), // null = all projects; 'SHAR' or 'SHAR,BETA' = restrict to these keys
+  lastImportAt: timestamp('last_import_at', { withTimezone: true }), // set on every successful delta or full import
   createdBy: uuid('created_by').references(() => users.id).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
