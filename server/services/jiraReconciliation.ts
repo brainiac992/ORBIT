@@ -8,7 +8,7 @@
  */
 
 import { db } from '../db/index.js';
-import { eq, and, inArray, gte } from 'drizzle-orm';
+import { eq, and, inArray, gte, sql } from 'drizzle-orm';
 import {
   jiraConnections,
   jiraSyncMappings,
@@ -224,6 +224,10 @@ export async function reconcileConnection(connectionId: string, ventureId?: stri
       for (const issue of recentIssues) {
         const newHash = computeSyncHash(issue);
 
+        // Epics are mapped as 'epic', all other types as 'issue'
+        const isEpic = (issue.fields.issuetype?.name ?? '').toLowerCase() === 'epic';
+        const jiraEntityType = isEpic ? 'epic' : 'issue';
+
         // Look up existing mapping
         const [mapping] = await db
           .select()
@@ -231,17 +235,36 @@ export async function reconcileConnection(connectionId: string, ventureId?: stri
           .where(
             and(
               eq(jiraSyncMappings.connectionId, connectionId),
-              eq(jiraSyncMappings.jiraEntityType, 'issue'),
+              eq(jiraSyncMappings.jiraEntityType, jiraEntityType),
               eq(jiraSyncMappings.jiraEntityId, issue.id),
             )
           )
           .limit(1);
 
         if (!mapping) {
-          // New issue not yet in ORBIT — create it
-          await handleNewIssueFromWebhook(
-            issue, connectionId, venture.id, venture.targetEndDate, syncUserId, customMappings
-          );
+          if (isEpic) {
+            // New epic not yet in ORBIT — create workstream
+            const [countRow] = await db
+              .select({ n: sql`count(*)::int` })
+              .from(workstreams)
+              .where(eq(workstreams.ventureId, venture.id));
+            const sortOrder = Number(countRow?.n ?? 0) + 1;
+            const wsShape = mapEpicToWorkstream(issue, venture.id, sortOrder, customMappings);
+            const [ws] = await db.insert(workstreams).values(wsShape).returning();
+            await db.insert(jiraSyncMappings).values({
+              connectionId,
+              jiraEntityType: 'epic',
+              jiraEntityId: issue.id,
+              orbitEntityType: 'workstream',
+              orbitEntityId: ws.id,
+              syncHash: newHash,
+            }).onConflictDoNothing();
+          } else {
+            // New non-epic issue — create milestone/risk/issue
+            await handleNewIssueFromWebhook(
+              issue, connectionId, venture.id, venture.targetEndDate, syncUserId, customMappings
+            );
+          }
           continue;
         }
 

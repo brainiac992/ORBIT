@@ -48,9 +48,9 @@ export function Shell() {
   const items = navItems[user.role] ?? [];
 
   return (
-    <div className="min-h-screen flex">
+    <div className="h-screen overflow-hidden flex">
       {/* Sidebar */}
-      <aside className="w-60 bg-[var(--surface-0)] border-e border-[var(--border)] flex flex-col no-print">
+      <aside className="w-60 flex-shrink-0 bg-[var(--surface-0)] border-e border-[var(--border)] flex flex-col no-print">
         <div className="px-5 py-5 border-b border-[var(--border)]">
           <div className="text-lg font-bold text-[var(--text-0)] tracking-tight">ORBIT</div>
           <div className="text-[10px] text-[var(--text-3)] uppercase tracking-widest mt-0.5">ADRES PMO</div>
