@@ -149,6 +149,8 @@ export const resources = pgTable('resources', {
   roleTitle: varchar('role_title', { length: 255 }),
   department: varchar('department', { length: 255 }),
   company: varchar('company', { length: 255 }),
+  email: varchar('email', { length: 255 }),
+  jiraAccountId: varchar('jira_account_id', { length: 255 }).unique(),
   active: boolean('active').default(true).notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),

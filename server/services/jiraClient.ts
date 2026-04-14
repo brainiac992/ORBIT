@@ -94,6 +94,12 @@ export interface JiraIssue {
     epic?: { id?: string; key?: string };
     aggregateprogress?: { percent?: number };
     customfield_10015?: string | null; // Epic start date (Jira Cloud standard)
+    assignee?: {
+      accountId?: string;
+      displayName?: string;
+      emailAddress?: string;
+      avatarUrls?: Record<string, string>;
+    } | null;
     comment?: {
       comments?: JiraComment[];
       total?: number;
@@ -234,7 +240,7 @@ export async function getProjectIssues(
   const bodyObj: Record<string, unknown> = {
     jql,
     maxResults: pageSize,
-    fields: ['summary', 'description', 'issuetype', 'status', 'priority', 'labels', 'duedate', 'resolutiondate', 'created', 'updated', 'parent'],
+    fields: ['summary', 'description', 'issuetype', 'status', 'priority', 'labels', 'duedate', 'resolutiondate', 'created', 'updated', 'parent', 'assignee'],
   };
   if (nextPageToken) bodyObj.nextPageToken = nextPageToken;
 
@@ -288,7 +294,7 @@ export async function getEpics(
     const bodyObj: Record<string, unknown> = {
       jql,
       maxResults: pageSize,
-      fields: ['summary', 'description', 'status', 'aggregateprogress', 'customfield_10015', 'duedate'],
+      fields: ['summary', 'description', 'status', 'aggregateprogress', 'customfield_10015', 'duedate', 'assignee'],
     };
     if (pageToken) bodyObj.nextPageToken = pageToken;
 

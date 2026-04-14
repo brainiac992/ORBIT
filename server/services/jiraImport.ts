@@ -28,6 +28,7 @@ import {
   issues,
   progressUpdates,
   users,
+  resources,
   resourceAssignments,
   budgetEntries,
   budgetForecasts,
@@ -791,6 +792,68 @@ export async function runFullImport(connectionId: string, jobId: string, force =
             status: ventureStatus,
             updatedAt: new Date(),
           }).where(eq(ventures.id, venture.id));
+        }
+
+        // ── 5g: Upsert Jira assignees as resources + venture assignments ──
+        // Collect unique assignees from all epics + issues for this project.
+        // Resources are global (survive re-imports); assignments are per-venture.
+        const assigneeMap = new Map<string, { accountId: string; name: string; email: string | null }>();
+        for (const epic of epics) {
+          const a = epic.fields.assignee;
+          if (a?.accountId && a.displayName) {
+            assigneeMap.set(a.accountId, { accountId: a.accountId, name: a.displayName, email: a.emailAddress ?? null });
+          }
+        }
+        for (const issue of allIssuesForProject) {
+          const a = issue.fields.assignee;
+          if (a?.accountId && a.displayName) {
+            assigneeMap.set(a.accountId, { accountId: a.accountId, name: a.displayName, email: a.emailAddress ?? null });
+          }
+        }
+
+        for (const assignee of assigneeMap.values()) {
+          // Upsert the global resource record (dedup by jiraAccountId)
+          let resourceId: string;
+          const [existingResource] = await db
+            .select({ id: resources.id })
+            .from(resources)
+            .where(eq(resources.jiraAccountId, assignee.accountId))
+            .limit(1);
+
+          if (existingResource) {
+            await db.update(resources)
+              .set({ name: assignee.name, ...(assignee.email ? { email: assignee.email } : {}) })
+              .where(eq(resources.id, existingResource.id));
+            resourceId = existingResource.id;
+          } else {
+            const [newRes] = await db.insert(resources).values({
+              name: assignee.name,
+              type: 'internal',
+              ...(assignee.email ? { email: assignee.email } : {}),
+              jiraAccountId: assignee.accountId,
+            }).returning({ id: resources.id });
+            resourceId = newRes.id;
+          }
+
+          // Create assignment to this venture if not already present
+          const [existingAssignment] = await db
+            .select({ id: resourceAssignments.id })
+            .from(resourceAssignments)
+            .where(and(
+              eq(resourceAssignments.resourceId, resourceId),
+              eq(resourceAssignments.ventureId, venture.id),
+            ))
+            .limit(1);
+
+          if (!existingAssignment) {
+            await db.insert(resourceAssignments).values({
+              resourceId,
+              ventureId: venture.id,
+              hoursPerWeek: '0',
+              startDate: venture.startDate,
+              createdBy: syncUserId,
+            });
+          }
         }
 
         projectsProcessed++;
