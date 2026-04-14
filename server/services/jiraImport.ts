@@ -504,6 +504,13 @@ export async function runFullImport(connectionId: string, jobId: string, force =
           conn.instanceUrl, conn.accountEmail, apiToken, project.key, updatedSince
         );
 
+        // Set preliminary total from epics + any issues already in hand (full mode).
+        // Delta mode will extend total after fetching updated issues below.
+        const preloadedIssues: jiraClient.JiraIssue[] = (project as any).__allIssues ?? [];
+        job.total = epics.length + preloadedIssues.length;
+        job.processed = 0;
+        updateJob(`Importing ${project.key} — 0 of ${job.total} items`, 0, job.total);
+
         let epicSortOrder = epicToWorkstreamId.size + 1;
 
         for (const epic of epics) {
@@ -531,6 +538,8 @@ export async function runFullImport(connectionId: string, jobId: string, force =
                   .where(eq(workstreams.id, existingWsId))
                   .limit(1);
                 if (ws) workstreamCompletionPct.set(existingWsId, ws.completionPct);
+                job.processed++;
+                updateJob(`Importing ${project.key} — ${job.processed} of ${job.total} items`, job.processed, job.total);
                 continue;
               }
 
@@ -585,6 +594,8 @@ export async function runFullImport(connectionId: string, jobId: string, force =
               syncHash: newHash,
             });
           }
+          job.processed++;
+          updateJob(`Importing ${project.key} — ${job.processed} of ${job.total} items`, job.processed, job.total);
         }
 
         // ── 4d: Classify and upsert issues ──────────────────
@@ -602,6 +613,8 @@ export async function runFullImport(connectionId: string, jobId: string, force =
             allIssuesForProject.push(...page.issues);
             issuePageToken = page.nextPageToken;
           } while (issuePageToken);
+          // Now we know total — extend it with the delta issue count
+          job.total += allIssuesForProject.length;
         } else {
           allIssuesForProject = (project as any).__allIssues ?? [];
         }
@@ -623,6 +636,8 @@ export async function runFullImport(connectionId: string, jobId: string, force =
                 jiraEntityId: issue.id,
                 jiraEntityType: 'issue',
               });
+              job.processed++;
+              updateJob(`Importing ${project.key} — ${job.processed} of ${job.total} items`, job.processed, job.total);
               continue;
             }
 
@@ -645,6 +660,8 @@ export async function runFullImport(connectionId: string, jobId: string, force =
                     .where(eq(milestones.id, existingMap.orbitEntityId));
                   await writeSyncMapping({ connectionId, jiraEntityType: 'issue', jiraEntityId: issue.id, orbitEntityType: 'milestone', orbitEntityId: existingMap.orbitEntityId, syncHash: newHash });
                 }
+                job.processed++;
+                updateJob(`Importing ${project.key} — ${job.processed} of ${job.total} items`, job.processed, job.total);
                 continue;
               }
             }
@@ -673,6 +690,8 @@ export async function runFullImport(connectionId: string, jobId: string, force =
                     .where(eq(risks.id, existingMap.orbitEntityId));
                   await writeSyncMapping({ connectionId, jiraEntityType: 'issue', jiraEntityId: issue.id, orbitEntityType: 'risk', orbitEntityId: existingMap.orbitEntityId, syncHash: newHash });
                 }
+                job.processed++;
+                updateJob(`Importing ${project.key} — ${job.processed} of ${job.total} items`, job.processed, job.total);
                 continue;
               }
             }
@@ -701,6 +720,8 @@ export async function runFullImport(connectionId: string, jobId: string, force =
                     .where(eq(issues.id, existingMap.orbitEntityId));
                   await writeSyncMapping({ connectionId, jiraEntityType: 'issue', jiraEntityId: issue.id, orbitEntityType: 'issue', orbitEntityId: existingMap.orbitEntityId, syncHash: newHash });
                 }
+                job.processed++;
+                updateJob(`Importing ${project.key} — ${job.processed} of ${job.total} items`, job.processed, job.total);
                 continue;
               }
             }
@@ -710,6 +731,8 @@ export async function runFullImport(connectionId: string, jobId: string, force =
             await writeSyncMapping({ connectionId, jiraEntityType: 'issue', jiraEntityId: issue.id, orbitEntityType: 'issue', orbitEntityId: orbitIssue.id, syncHash: newHash });
           }
           // 'skip' — do nothing
+          job.processed++;
+          updateJob(`Importing ${project.key} — ${job.processed} of ${job.total} items`, job.processed, job.total);
         }
 
         // ── 5e: Fetch epic comments → progress updates ───────
