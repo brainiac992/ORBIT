@@ -321,7 +321,7 @@ function ImportFlow() {
           </Button>
           <Button
             variant="danger"
-            onClick={() => retryMutation.mutate()}
+            onClick={() => retryMutation.mutate({ force: true })}
             disabled={retryMutation.isPending}
           >
             {retryMutation.isPending ? 'Retrying...' : 'Retry Import'}

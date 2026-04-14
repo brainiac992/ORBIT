@@ -307,7 +307,8 @@ export const jiraRouter = router({
   // Same as triggerImport but with explicit retry semantics.
   retryImport: protectedProcedure
     .use(requireRole('pmo'))
-    .mutation(async ({ ctx }) => {
+    .input(z.object({ force: z.boolean().optional().default(true) }))
+    .mutation(async ({ ctx, input }) => {
       const conn = await getActiveConnection(ctx.db);
       if (!conn) {
         throw new TRPCError({ code: 'NOT_FOUND', message: 'No active Jira connection found.' });
@@ -321,7 +322,7 @@ export const jiraRouter = router({
           .where(eq(jiraConnections.id, conn.id));
       }
 
-      const jobId = triggerImport(conn.id);
+      const jobId = triggerImport(conn.id, input.force);
       return { jobId, status: 'queued', estimatedSeconds: 30 };
     }),
 
