@@ -274,7 +274,7 @@ export async function getEpics(
   updatedSince?: string,
 ): Promise<JiraIssue[]> {
   const base = instanceUrl.replace(/\/$/, '');
-  const pageSize = 50;
+  const pageSize = 100;
   const all: JiraIssue[] = [];
   let pageToken: string | undefined;
 
@@ -322,7 +322,9 @@ export async function getEpics(
 
     const body = await response.json() as { issues: JiraIssue[]; total: number; nextPageToken?: string };
     all.push(...(body.issues ?? []));
-    if (!body.nextPageToken || all.length >= (body.total ?? 0)) break;
+    // Cursor-based pagination: stop only when Jira sends no next cursor.
+    // body.total is unreliable (may reflect page count, not global count).
+    if (!body.nextPageToken) break;
     pageToken = body.nextPageToken;
   }
 
