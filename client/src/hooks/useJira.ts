@@ -30,7 +30,7 @@ export function useImportStatus(jobId: string | null, enabled: boolean) {
     { jobId: jobId! },
     {
       enabled: enabled && !!jobId,
-      refetchInterval: enabled ? 3_000 : false,
+      refetchInterval: enabled ? 500 : false,
     }
   );
   return result;
