@@ -181,7 +181,7 @@ function ImportFlow() {
               </Button>
               <Button
                 variant="danger"
-                onClick={() => triggerMutation.mutate()}
+                onClick={() => triggerMutation.mutate({ force: true })}
                 disabled={confirmText !== 'CONFIRM' || triggerMutation.isPending}
                 aria-disabled={confirmText !== 'CONFIRM'}
               >
