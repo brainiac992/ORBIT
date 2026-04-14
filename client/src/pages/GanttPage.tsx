@@ -2,6 +2,7 @@ import { useParams } from 'react-router-dom';
 import { trpc } from '../lib/trpc.js';
 import { useMemo, useState } from 'react';
 import { Modal, FormField, Input, Select, Button } from '../components/Modal.js';
+import { SearchInput } from '../components/SearchInput.js';
 import { useAuth } from '../lib/auth.js';
 
 export function GanttPage() {
@@ -11,6 +12,14 @@ export function GanttPage() {
   const [zoom, setZoom] = useState<'week' | 'month'>('week');
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [showAddWs, setShowAddWs] = useState(false);
+  const [search, setSearch] = useState('');
+
+  const filteredWorkstreams = useMemo(() => {
+    if (!data) return [];
+    if (!search.trim()) return data.workstreams;
+    const q = search.toLowerCase();
+    return data.workstreams.filter((ws: any) => (ws.name ?? '').toLowerCase().includes(q));
+  }, [data, search]);
 
   const periods = useMemo(() => {
     if (!data) return [];
@@ -84,14 +93,14 @@ export function GanttPage() {
 
   // Check if a row is the very last visible row in the chart
   const isLastRow = (wsIndex: number) => {
-    if (wsIndex < data.workstreams.length - 1) return false;
-    const ws = data.workstreams[wsIndex];
+    if (wsIndex < filteredWorkstreams.length - 1) return false;
+    const ws = filteredWorkstreams[wsIndex];
     const wsMilestones = data.milestones.filter((m: any) => m.workstreamId === ws.id);
     return collapsed[ws.id] || wsMilestones.length === 0;
   };
 
   const isLastMilestone = (wsIndex: number, msIndex: number, msCount: number) => {
-    return wsIndex === data.workstreams.length - 1 && msIndex === msCount - 1;
+    return wsIndex === filteredWorkstreams.length - 1 && msIndex === msCount - 1;
   };
 
   return (
@@ -99,6 +108,7 @@ export function GanttPage() {
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-lg font-bold text-[var(--text-0)]">Gantt Chart</h3>
         <div className="flex items-center gap-3">
+          <SearchInput value={search} onChange={setSearch} placeholder="Search epics…" className="w-48" />
           {canManage && <Button variant="secondary" onClick={() => setShowAddWs(true)} className="!text-xs">Add Workstream</Button>}
         <div className="flex gap-1 bg-[var(--surface-1)] rounded-xl p-1">
           {(['week', 'month'] as const).map(z => (
@@ -119,7 +129,7 @@ export function GanttPage() {
             <div className="h-10 border-b border-[var(--border)] bg-[var(--surface-1)] px-4 flex items-center">
               <span className="text-[10px] text-[var(--text-3)] uppercase tracking-widest">Workstream</span>
             </div>
-            {data.workstreams.map((ws: any, wsIdx: number) => {
+            {filteredWorkstreams.map((ws: any, wsIdx: number) => {
               const wsMilestones = data.milestones.filter((m: any) => m.workstreamId === ws.id);
               const isOpen = !collapsed[ws.id];
               const lastWsRow = isLastRow(wsIdx);
@@ -173,7 +183,7 @@ export function GanttPage() {
                   </div>
                 )}
 
-                {data.workstreams.map((ws: any, wsIdx: number) => {
+                {filteredWorkstreams.map((ws: any, wsIdx: number) => {
                   const barLeft = Math.max(0, ws.startOffsetDays) * dayWidth;
                   const barWidth = Math.max(dayWidth, ws.durationDays * dayWidth);
                   const wsMilestones = data.milestones.filter((m: any) => m.workstreamId === ws.id);
