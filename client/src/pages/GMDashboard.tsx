@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { trpc } from '../lib/trpc.js';
-import { HealthDot, StatusBadge, ProgressRing, KpiCard, formatAED, SectionHeader } from '../components/StatusBadge.js';
+import { HealthDot, StatusBadge, ProgressRing, formatAED } from '../components/StatusBadge.js';
 import { Button } from '../components/Modal.js';
 
 export function GMDashboard() {
@@ -21,19 +21,47 @@ export function GMDashboard() {
 
   const { summary, ventures } = data;
   const selected = ventures.find(v => v.id === selectedId);
+  const total = summary.totalActive;
 
   return (
-    <div className="p-8 max-w-6xl mx-auto">
-      <h2 className="text-2xl font-bold text-[var(--text-0)] mb-8">Portfolio Health</h2>
+    <div className="p-6 max-w-6xl mx-auto">
+      <h2 className="text-2xl font-bold text-[var(--text-0)] mb-6">Portfolio Health</h2>
 
-      {/* KPI strip */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-10">
-        <KpiCard label="Active" value={summary.totalActive} />
-        <KpiCard label="On Track" value={summary.onTrack} accent="text-emerald-400" />
-        <KpiCard label="At Risk" value={summary.atRisk} accent="text-amber-400" />
-        <KpiCard label="Off Track" value={summary.offTrack} accent="text-red-400" />
-        <KpiCard label="Budget" value={formatAED(summary.totalApprovedBudget)} sub={`Forecast: ${formatAED(summary.totalForecast)}`} />
+      {/* KPI strip — larger numbers */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+        {[
+          { label: 'Active',    value: summary.totalActive,               color: 'text-[var(--text-0)]' },
+          { label: 'On Track',  value: summary.onTrack,                   color: 'text-emerald-400'      },
+          { label: 'At Risk',   value: summary.atRisk,                    color: 'text-amber-400'        },
+          { label: 'Off Track', value: summary.offTrack,                  color: 'text-red-400'          },
+          { label: 'Budget',    value: formatAED(summary.totalApprovedBudget), color: 'text-[var(--text-0)]', sub: `Forecast ${formatAED(summary.totalForecast)}` },
+        ].map(card => (
+          <div key={card.label} className="bg-[var(--surface-0)] rounded-2xl border border-[var(--border)] p-5">
+            <div className={`text-2xl font-bold ltr-num mb-1 ${card.color}`}>{card.value}</div>
+            <div className="text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-wider">{card.label}</div>
+            {card.sub && <div className="text-[10px] text-[var(--text-3)] mt-0.5">{card.sub}</div>}
+          </div>
+        ))}
       </div>
+
+      {/* Portfolio health bar */}
+      {total > 0 && (
+        <div className="bg-[var(--surface-0)] rounded-2xl border border-[var(--border)] px-5 py-4 mb-6">
+          <div className="text-[10px] font-semibold text-[var(--text-3)] uppercase tracking-widest mb-3">Health Distribution</div>
+          <div className="flex h-2.5 rounded-full overflow-hidden gap-px">
+            {summary.onTrack  > 0 && <div className="bg-emerald-500" style={{ width: `${(summary.onTrack  / total) * 100}%` }} />}
+            {summary.atRisk   > 0 && <div className="bg-amber-500"   style={{ width: `${(summary.atRisk   / total) * 100}%` }} />}
+            {summary.offTrack > 0 && <div className="bg-red-500"     style={{ width: `${(summary.offTrack / total) * 100}%` }} />}
+            {summary.complete > 0 && <div className="bg-[var(--accent)]" style={{ width: `${(summary.complete / total) * 100}%` }} />}
+          </div>
+          <div className="flex flex-wrap gap-5 mt-3 text-xs text-[var(--text-3)]">
+            {summary.onTrack  > 0 && <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-emerald-500" />On Track — {summary.onTrack}</span>}
+            {summary.atRisk   > 0 && <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-amber-500" />At Risk — {summary.atRisk}</span>}
+            {summary.offTrack > 0 && <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-red-500" />Off Track — {summary.offTrack}</span>}
+            {summary.complete > 0 && <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-[var(--accent)]" />Complete — {summary.complete}</span>}
+          </div>
+        </div>
+      )}
 
       {/* Venture cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">

@@ -203,8 +203,13 @@ export const dashboardRouter = router({
         return {
           id: v.id,
           name: v.name,
+          ventureType: v.ventureType,
+          startDate: v.startDate,
+          targetEndDate: v.targetEndDate,
+          jiraProjectKey: v.jiraProjectKey,
           pmName: pm?.name ?? 'Unassigned',
           health: v.health,
+          status: v.status,
           completionPct: v.completionPct,
           updatedAt: v.updatedAt,
           isStale,

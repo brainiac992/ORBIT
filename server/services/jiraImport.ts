@@ -766,7 +766,12 @@ export async function runFullImport(connectionId: string, jobId: string, force =
 
         // ── 5f: Compute venture health & completion from workstreams ──
         const ventureWsList = await db
-          .select({ status: workstreams.status, completionPct: workstreams.completionPct })
+          .select({
+            status: workstreams.status,
+            completionPct: workstreams.completionPct,
+            baselineStart: workstreams.baselineStart,
+            baselineEnd: workstreams.baselineEnd,
+          })
           .from(workstreams)
           .where(eq(workstreams.ventureId, venture.id));
 
@@ -775,13 +780,55 @@ export async function runFullImport(connectionId: string, jobId: string, force =
             ventureWsList.reduce((sum, ws) => sum + ws.completionPct, 0) / ventureWsList.length
           );
           const allComplete = ventureWsList.every(ws => ws.status === 'complete');
-          const anyOffTrack = ventureWsList.some(ws => ws.status === 'on_hold');
-          const anyAtRisk = ventureWsList.some(ws => ws.completionPct < 30 && ws.status === 'in_progress');
 
+          // ── Timeline-aware health calculation ──
+          // Uses workstream baseline dates to detect schedule slippage.
+          const now = Date.now();
+          let hasOverdueWorkstream = false;   // past end date, not complete
+          let maxScheduleGap = 0;            // largest (elapsed% - completion%) across workstreams
+
+          for (const ws of ventureWsList) {
+            if (ws.status === 'complete') continue;
+            const wsEnd = ws.baselineEnd ? new Date(ws.baselineEnd).getTime() : null;
+            const wsStart = ws.baselineStart ? new Date(ws.baselineStart).getTime() : null;
+
+            if (wsEnd && now > wsEnd) {
+              hasOverdueWorkstream = true;
+            }
+            if (wsStart && wsEnd && now > wsStart && wsEnd > wsStart) {
+              const elapsedFraction = Math.min(1, (now - wsStart) / (wsEnd - wsStart));
+              const completionFraction = ws.completionPct / 100;
+              const gap = elapsedFraction - completionFraction;
+              if (gap > maxScheduleGap) maxScheduleGap = gap;
+            }
+          }
+
+          // Also check venture-level timeline gap using startDate / targetEndDate
+          const [vRow] = await db
+            .select({ startDate: ventures.startDate, targetEndDate: ventures.targetEndDate })
+            .from(ventures)
+            .where(eq(ventures.id, venture.id))
+            .limit(1);
+
+          if (vRow?.startDate && vRow?.targetEndDate) {
+            const vStart = new Date(vRow.startDate).getTime();
+            const vEnd = new Date(vRow.targetEndDate).getTime();
+            if (now > vStart && vEnd > vStart) {
+              const vElapsed = Math.min(1, (now - vStart) / (vEnd - vStart));
+              const vGap = vElapsed - avgCompletion / 100;
+              if (vGap > maxScheduleGap) maxScheduleGap = vGap;
+            }
+          }
+
+          // Thresholds: >35% behind → off_track, >15% behind → at_risk
           let health: 'on_track' | 'at_risk' | 'off_track' | 'complete' = 'on_track';
-          if (allComplete) health = 'complete';
-          else if (anyOffTrack) health = 'off_track';
-          else if (anyAtRisk) health = 'at_risk';
+          if (allComplete) {
+            health = 'complete';
+          } else if (hasOverdueWorkstream || maxScheduleGap > 0.35) {
+            health = 'off_track';
+          } else if (maxScheduleGap > 0.15) {
+            health = 'at_risk';
+          }
 
           let ventureStatus: 'planning' | 'active' | 'on_hold' | 'complete' | 'archived' = 'active';
           if (allComplete) ventureStatus = 'complete';
